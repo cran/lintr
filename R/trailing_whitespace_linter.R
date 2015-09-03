@@ -6,13 +6,14 @@ trailing_whitespace_linter <- function(source_file) {
     global = TRUE,
     locations = TRUE)
 
-  lapply(seq_along(source_file$lines), function(line_number) {
+  lapply(seq_along(source_file$lines), function(itr) {
 
       mapply(
         FUN = function(start, end) {
           if (is.na(start)) {
             return()
           }
+          line_number <- names(source_file$lines)[itr]
           Lint(
             filename = source_file$filename,
             line_number = line_number,
@@ -20,11 +21,12 @@ trailing_whitespace_linter <- function(source_file) {
             type = "style",
             message = "Trailing whitespace is superfluous.",
             line = source_file$lines[as.character(line_number)],
-            ranges = list(c(start, end))
+            ranges = list(c(start, end)),
+            linter = "trailing_whitespace_linter"
             )
         },
-        start = res[[line_number]]$space.start,
-        end = res[[line_number]]$space.end,
+        start = res[[itr]]$space.start,
+        end = res[[itr]]$space.end,
         SIMPLIFY = FALSE
         )
   })

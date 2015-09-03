@@ -10,9 +10,14 @@
 #'   \item list-vectors check if the given lint matches (use if more than one lint is returned for the content)
 #' }
 #' @param ... one or more linters to use for the check
-expect_lint <- function(content, checks, ...) {
+#' @param file if not \code{NULL} read content from a file rather than from \code{content}
+expect_lint <- function(content, checks, ..., file = NULL) {
 
-  results <- expectation_lint(content, checks, ...)
+  if (!is.null(file)) {
+    content <- readChar(file, file.info(file)$size)
+  }
+
+    results <- expectation_lint(content, checks, ...)
 
   reporter <- testthat::get_reporter()
 
@@ -65,8 +70,8 @@ expectation_lint <- function(content, checks, ...) {
           " lints as expected from content:", content, lints)))
   }
 
-  itr <- 0L
-  mapply(function(lint, check) {
+  itr <- 0L #nolint
+  res <- mapply(function(lint, check) {
     itr <- itr + 1L
     lapply(names(check), function(field) {
       value <- lint[[field]]
@@ -106,4 +111,31 @@ expectation_lint <- function(content, checks, ...) {
   },
   lints,
   checks)
+  res[[1]]
+}
+
+#' Test that the package is lint free
+#' 
+#' This function is a thin wrapper around lint_package that simply tests there are no 
+#' lints in the package.  It can be used to ensure that your tests fail if the package 
+#' contains lints.
+#' 
+#' @param ... arguments passed to \code{\link{lint_package}}
+#' @export
+expect_lint_free <- function(...) {
+  lints <- lint_package(...)
+  has_lints <- length(lints) > 0
+
+  lint_output <- NULL
+  if (has_lints) {
+    lint_output <- paste(collapse = "\n", capture.output(print(lints)))
+  }
+  result <- testthat::expectation(!has_lints,
+                        paste(sep = "\n",
+                              "Not lint free",
+                              lint_output),
+                        "lint free")
+
+  testthat::get_reporter()$add_result(result)
+  invisible(result)
 }

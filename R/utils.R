@@ -1,8 +1,8 @@
 `%||%` <- function(x, y) {
-  if (!is.null(x)) {
-    x
-  } else {
+  if (is.null(x) || length(x) <= 0) {
     y
+  } else {
+    x
   }
 }
 
@@ -106,7 +106,26 @@ with_id <- function(source_file, id) {
 }
 
 get_content <- function(lines, info) {
-  lines[length(lines)] <- substr(lines[length(lines)], 1L, info$col2)
-  lines[1] <- substr(lines[1], info$col1, nchar(lines[1]))
+  lines[is.na(lines)] <- ""
+
+  if (!missing(info)) {
+    lines[length(lines)] <- substr(lines[length(lines)], 1L, info$col2)
+    lines[1] <- substr(lines[1], info$col1, nchar(lines[1]))
+  }
   paste0(collapse = "\n", lines)
+}
+
+logical_env <- function(x) {
+  res <- as.logical(Sys.getenv(x))
+  if (is.na(res)) {
+    return(NULL)
+  }
+  res
+}
+
+# from ?chartr
+rot <- function(ch, k = 13) {
+  p0 <- function(...) paste(c(...), collapse = "")
+  A <- c(letters, LETTERS, " '")
+  I <- seq_len(k); chartr(p0(A), p0(c(A[-I], A[I])), ch)
 }

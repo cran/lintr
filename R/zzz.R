@@ -24,9 +24,14 @@ named_list <- function(...) {
 #' @examples
 #' # change the default line length cutoff
 #' with_defaults(line_length_linter = line_length_linter(120))
+#'
 #' # you can also omit the argument name if you are just using different
 #' #   arguments.
 #' with_defaults(line_length_linter(120))
+#' 
+#' # enforce camelCase rather than snake_case
+#' with_defaults(camel_case_linter = NULL,
+#'               snake_case_linter)
 with_defaults <- function(..., default = default_linters) {
   vals <- list(...)
   nms <- names2(vals)
@@ -64,22 +69,45 @@ default_linters <- with_defaults(default = list(),
   infix_spaces_linter,
   spaces_left_parentheses_linter,
   spaces_inside_linter,
-  open_curly_linter,
-  closed_curly_linter,
-  object_camel_case_linter,
-  object_multiple_dots_linter,
+  open_curly_linter(),
+  closed_curly_linter(),
+  camel_case_linter,
+  multiple_dots_linter,
   object_length_linter(30),
   object_usage_linter,
   trailing_whitespace_linter,
   trailing_blank_lines_linter,
+  commented_code_linter,
 
   NULL
 )
 
-.onLoad <- function(libname, pkgname) {
+#' Default lintr settings
+#' @seealso \code{\link{read_settings}}, \code{\link{default_linters}}
+default_settings <- list(
+  linters = default_linters,
+  exclude = rex::rex("#", any_spaces, "nolint"),
+  exclude_start = rex::rex("#", any_spaces, "nolint start"),
+  exclude_end = rex::rex("#", any_spaces, "nolint end"),
+  exclusions = list(),
+  cache_directory = "~/.R/lintr_cache", # nolint
+  comment_token = rot(
+    paste0(
+      "772q988720",
+      "p026or314s",
+      "rps37s82q9",
+      "213opr9823")
+    ),
+  comment_bot = logical_env("LINTR_COMMENT_BOT") %||% TRUE,
+  error_on_lint = logical_env("LINTR_ERROR_ON_LINT") %||% FALSE
+)
+
+settings <- list2env(default_settings, parent = emptyenv())
+
+.onLoad <- function(libname, pkgname) { # nolint
   op <- options()
   op.lintr <- list(
-    lintr.cache_directory = "~/.R/lintr_cache"
+    lintr.linter_file = ".lintr"
   )
   toset <- ! (names(op.lintr) %in% names(op))
   if(any(toset)) options(op.lintr[toset])

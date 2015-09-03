@@ -1,29 +1,25 @@
 # lintr
-[![Build Status](https://travis-ci.org/jimhester/lintr.png?branch=master)](https://travis-ci.org/jimhester/lintr)
+[![Build Status](https://app.wercker.com/status/9b57842367f234e4c7e17d01fd8a4a15/s/master "wercker status")](https://app.wercker.com/project/bykey/9b57842367f234e4c7e17d01fd8a4a15)
+[![codecov.io](http://codecov.io/github/jimhester/lintr/coverage.svg?branch=master)](http://codecov.io/github/jimhester/lintr?branch=master)
 
 ## Static code analysis for R ##
-
 ![lintr](http://i.imgur.com/acV27NV.gif "lintr")
 
+### RStudio ###
+lintr lints are automatically displayed in the RStudio Marker pane, Rstudio versions (> v0.99.206).
+![RStudio Example](http://i.imgur.com/PIKnpbn.png "Rstudio Example")
+
 ### Emacs ###
-lintr can be integrated with
-[flycheck](https://github.com/flycheck/flycheck) for on the fly linting.
+lintr has [built-in integration](http://www.flycheck.org/manual/0.23/Supported-languages.html#R) with [flycheck](https://github.com/flycheck/flycheck) versions greater than `0.23`.
 ![Emacs Example](http://i.imgur.com/vquPht3.gif "Emacs Example")
 
 #### Installation ####
-Put the following in your .emacs file to automatically use `lintr` to check R
-files.  *Note you will need to change the path to where you put
-[lintr.el](https://github.com/jimhester/lintr/raw/master/inst/flycheck/lintr.el)*
+lintr is fully integrated into flycheck when using [ESS](http://ess.r-project.org/).  See the
+installalation documentation for those packages for more information.
 
-```emacs
-(require 'flycheck)
-(add-hook 'ess-mode-hook
-          (lambda () (flycheck-mode t)))
-(load "path/to/flycheck-linter.el")
-```
 #### Configuration ####
 You can also configure what linters are used. e.g. using a different line length cutoff.
-- `M-X customize-opton` -> `flycheck-r-linters` -> `with_defaults(line_length_linter(120))`
+- `M-x customize-option` -> `flycheck-lintr-linters` -> `with_defaults(line_length_linter(120))`
 
 ### Vim
 lintr can be integrated with
@@ -55,12 +51,9 @@ lintr can be intergrated with
 ![Sublime Example](http://i.imgur.com/3pua2yz.gif "Sublime Example")
 
 #### Installation ####
-Clone the [repository](https://github.com/jimhester/SublimeLinter-contrib-R)
+Simply install `sublimeLinter-contrib-lintr` using [Package Control](https://packagecontrol.io/).
 
-```bash
-cd 'path/to/Sublime Text 3/Packages'
-git clone https://github.com/jimhester/SublimeLinter-contrib-R.git
-```
+For more information see [Sublime Linter Docs](http://sublimelinter.readthedocs.org/en/latest/installation.html#installing-via-pc)
 
 #### Configuration ####
 You can also configure what linters are used. e.g. using a different line length cutoff.
@@ -93,9 +86,9 @@ In the SublimeLinter User Settings
 * `line_length_linter`: check the line length of both comments and code is less than
   length.
 * `no_tab_linter`: check that only spaces are used, never tabs.
-* `object_camel_case_linter`: check that function and variable names are not camelCase.
-* `object_snake_case_linter`: check that function and variable names are not snake_case.
-* `object_multiple_dots_linter`: check that function and variable names are separated by `_` rather than `.`.
+* `camel_case_linter`: check that function and variable names are not camelCase.
+* `snake_case_linter`: check that function and variable names are not snake_case.
+* `multiple_dots_linter`: check that function and variable names are separated by `_` rather than `.`.
 * `object_length_linter`: check that function and variable names are not more than `length` characters.
 * `open_curly_linter`: check that opening curly braces are never on their own
   line and are always followed by a newline.
@@ -107,6 +100,89 @@ In the SublimeLinter User Settings
   unless they are in a function call.
 * `trailing_blank_lines_linter`: check there are no trailing blank lines.
 * `trailing_whitespace_linter`: check there are no trailing whitespace characters.
+
+## Project Configuration ##
+
+Lintr supports per-project configuration of the following fields.
+The config file (default file name: `.lintr`) is in [Debian Control Field Format](http://www.debian.org/doc/debian-policy/ch-controlfields.html).
+
+- `linters` - see `?with_defaults` for example of specifying only a few non-default linters.
+- `exclusions` - a list of filenames to exclude from linting.  You can use a
+  named item to exclude only certain lines from a file.
+- `exclude` - a regex pattern for lines to exclude from linting.  Default is "# nolint"
+- `exclude_start` - a regex pattern to start exclusion range. Default is "# nolint start"
+- `exclude_end` - a regex pattern to end exclusion range. Default is "# nolint end"
+
+An example file that uses 120 character line lengths, excludes a couple of
+files and sets different default exclude regexs follows.
+```
+linters: with_defaults(line_length_linter(120))
+exclusions: list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R", "tests/testthat/exclusions-test")
+exclude: "# Exclude Linting"
+exclude_start: "# Begin Exclude Linting"
+exclude_end: "# End Exclude Linting"
+```
+
+With the following command, you can create a configuration file for `lintr` that ignores all linters that show at least one error:
+
+```r
+library(magrittr)
+library(dplyr)
+lintr::lint_package() %>%
+  as.data.frame %>%
+  group_by(linter) %>%
+  tally(sort = TRUE) %$%
+  sprintf("linters: with_defaults(\n    %s\n    NULL\n  )\n",
+          paste0(linter, " = NULL, # ", n, collapse="\n    ")) %>%
+  cat(file = ".lintr")
+```
+
+The resulting configuration will contain each currently failing linter and the corresponding number of hits as a comment. Proceed by successively enabling linters, starting with those with the least number of hits. Note that this requires `lintr` 0.3.0.9001 or later.
+
+## Travis-CI ##
+If you want to run `lintr` on [Travis-CI](https://travis-ci.org) you will need
+to have travis install the package first.  This can be done by adding the
+following line to your `.travis.yml`
+
+```yaml
+r_github_packages:
+  - jimhester/lintr
+```
+
+### Testthat ###
+If you are already using [testthat](https://github.com/hadley/testthat) for
+testing simply add the following to your tests to fail if there are any lints
+in your project.  You will have to add `Suggests: lintr` to your package
+`DESCRIPTION` as well.
+
+```r
+if (requireNamespace("lintr", quietly = TRUE)) {
+  context("lints")
+  test_that("Package Style", {
+    lintr::expect_lint_free()
+  })
+}
+```
+
+### Non-failing Lints ###
+If you do not want to fail the travis build on lints or do not use testthat you
+can simply add the following to your `.travis.yml`
+```yaml
+after_success:
+  - Rscript -e 'lintr::lint_package()'
+```
+
+In both cases the [lintr-bot](https://github.com/lintr-bot) will add comments
+to the commit or pull request with the lints found and they will also be
+printed on Travis-CI or Wercker.  If you want to disable the commenting you can
+set the environment variable `LINTR_COMMENT_BOT=false`.
+
+## Installation of develment version ##
+To install the latest development version of lintr from GitHub
+
+```r
+devtools::install_github("jimhester/lintr")
+```
 
 ## References ##
 Most of the default linters are based on [Hadley Wickham's R Style Guide](http://r-pkgs.had.co.nz/style.html).

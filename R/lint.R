@@ -1,8 +1,12 @@
 #' Lintr
 #'
-#' Static code analysis to find errors in style, syntax and semantics.
+#' Checks adherence to a given style, syntax errors and possible semantic
+#' issues.  Supports on the fly checking of R code edited with Emacs, Vim and
+#' Sublime Text.
 #' @name lintr
 #' @seealso \code{\link{lint}}, \code{\link{lint_package}}, \code{\link{linters}}
+#' @importFrom stats na.omit
+#' @importFrom utils capture.output getParseData relist
 NULL
 
 #' Lint a given file
@@ -12,13 +16,22 @@ NULL
 #' @param linters a list of linter functions to apply see \code{\link{linters}}
 #' for a full list of default and available linters.
 #' @param cache toggle caching of lint results
+#' @param ... additional arguments passed to \code{\link{exclude}}.
+#' @param parse_settings whether to try and parse the settings
 #' @export
 #' @name lint_file
-lint <- function(filename, linters = default_linters, cache = FALSE) {
+lint <- function(filename, linters = NULL, cache = FALSE, ..., parse_settings = TRUE) {
 
-  if (!is.list(linters)) {
+  if (isTRUE(parse_settings)) {
+    read_settings(filename)
+    on.exit(clear_settings, add = TRUE)
+  }
+
+  if (is.null(linters)) {
+    linters <- settings$linters
+  } else if (!is.list(linters)) {
     name <- deparse(substitute(linters))
-    linters <- list(linters)
+   linters <- list(linters)
     names(linters) <- name
   }
 
@@ -27,22 +40,24 @@ lint <- function(filename, linters = default_linters, cache = FALSE) {
   lints <- list()
   itr <- 0
 
-  if (cache) {
+  if (isTRUE(cache)) {
     lint_cache <- load_cache(filename)
+    lints <- retrieve_file(lint_cache, filename, linters)
+    if (!is.null(lints)) {
+      return(exclude(lints, ...))
+    }
   }
 
   for (expr in source_expressions$expressions) {
     for (linter in names(linters)) {
-      if (cache && has_lint(lint_cache, expr, linter)) {
-
+      if (isTRUE(cache) && has_lint(lint_cache, expr, linter)) {
         lints[[itr <- itr + 1L]] <- retrieve_lint(lint_cache, expr, linter, source_expressions$lines)
       }
       else {
-
-        expr_lints <- flatten_lints(linters[[linter]](expr))
+        expr_lints <- flatten_lints(linters[[linter]](expr)) # nolint
 
         lints[[itr <- itr + 1L]] <- expr_lints
-        if (cache) {
+        if (isTRUE(cache)) {
           cache_lint(lint_cache, expr, linter, expr_lints)
         }
       }
@@ -52,15 +67,20 @@ lint <- function(filename, linters = default_linters, cache = FALSE) {
   if (inherits(source_expressions$error, "lint")) {
     lints[[itr <- itr + 1L]] <- source_expressions$error
 
-    if (cache) {
+    if (isTRUE(cache)) {
       cache_lint(lint_cache, list(filename=filename, content=""), "error", source_expressions$error)
     }
   }
 
-  if (cache) {
+  lints <- structure(reorder_lints(flatten_lints(lints)), class = "lints")
+
+
+  if (isTRUE(cache)) {
+    #cache_file(lint_cache, filename, linters, lints)
     save_cache(lint_cache, filename)
   }
-  structure(reorder_lints(flatten_lints(lints)), class = "lints")
+
+  exclude(lints, ...)
 }
 
 reorder_lints <- function(lints) {
@@ -85,26 +105,53 @@ reorder_lints <- function(lints) {
 #' absolute path.
 #' @param ... additional arguments passed to \code{\link{lint}}
 #' @export
-lint_package <- function(path = NULL, relative_path = TRUE, ...) {
-  if (is.null(path)) {
-    path <- find_package()
-  }
-  files <- dir(path=path,
-    pattern = rex(".", one_of("Rr"), end),
+lint_package <- function(path = ".", relative_path = TRUE, ...) {
+  path <- find_package(path)
+
+  read_settings(path)
+  on.exit(clear_settings, add = TRUE)
+
+  names(settings$exclusions) <- normalizePath(file.path(path, names(settings$exclusions)))
+
+  files <- dir(
+    path = file.path(path,
+                     c("R",
+                       "tests",
+                       "inst")
+                     ),
+    pattern = rex::rex(".", one_of("Rr"), end),
     recursive = TRUE,
-    full.names = TRUE)
+    full.names = TRUE
+  )
 
-  lints <- flatten_lints(lapply(files, lint, ...))
+  files <- normalizePath(files)
 
-  if (relative_path) {
+  lints <- flatten_lints(lapply(files,
+      function(file) {
+        if (interactive()) {
+          message(".", appendLF = FALSE)
+        }
+        lint(file, ..., parse_settings = FALSE)
+      }))
+
+  if (interactive()) {
+    message() # for a newline
+  }
+
+  lints <- reorder_lints(lints)
+
+  if (relative_path == TRUE) {
     lints[] <- lapply(lints,
       function(x) {
-        x$filename <- re_substitutes(x$filename, rex(path), ".")
+        x$filename <- re_substitutes(x$filename, rex(normalizePath(path), one_of("/", "\\")), "")
         x
       })
+    attr(lints, "path") <- path
   }
 
-  reorder_lints(lints)
+  class(lints) <- "lints"
+
+  lints
 }
 
 find_package <- function(path = getwd()) {
@@ -140,10 +187,11 @@ pkg_name <- function(path = find_package()) {
 #' @param message message used to describe the lint error
 #' @param line code source where the lint occured
 #' @param ranges ranges on the line that should be emphasized.
+#' @param linter name of linter that created the Lint object.
 #' @export
 Lint <- function(filename, line_number = 1L, column_number = NULL,
   type = c("style", "warning", "error"),
-  message = "", line = "", ranges = NULL) {
+  message = "", line = "", ranges = NULL, linter = NULL) {
 
   type <- match.arg(type)
 
@@ -155,37 +203,40 @@ Lint <- function(filename, line_number = 1L, column_number = NULL,
       type = type,
       message = message,
       line = line,
-      ranges = ranges
+      ranges = ranges,
+      linter = linter
       ),
     class="lint")
 }
 
-#' @export
-print.lint <- function(x, ...) {
+rstudio_source_markers <- function(lints) {
 
-  color <- switch(x$type,
-    "warning" = crayon::magenta,
-    "error" = crayon::red,
-    "style" = crayon::blue,
-    crayon::bold
-  )
+  # package path will be NULL unless it is a relative path
+  package_path <- attr(lints, "path")
 
-  message(
-    crayon::bold(x$filename, ":",
-    as.character(x$line_number), ":",
-    as.character(x$column_number), ": ", sep = ""),
-    color(x$type, ": ", sep = ""),
-    crayon::bold(x$message), "\n",
-    x$line, "\n",
-    highlight_string(x$message, x$column_number, x$ranges)
-    )
-  invisible(x)
-}
+  # generate the markers
+  markers <- lapply(lints, function(x) {
+    filename <- if (!is.null(package_path)) {
+      file.path(package_path, x$filename)
+    } else {
+      x$filename
+    }
 
-#' @export
-print.lints <- function(x, ...) {
-  lapply(x, print, ...)
-  invisible(x)
+    marker <- list()
+    marker$type <- x$type
+    marker$file <- filename
+    marker$line <- x$line_number
+    marker$column <- x$column_number
+    marker$message <- x$message
+    marker
+  })
+
+  # request source markers
+  rstudioapi::callFun("sourceMarkers",
+                      name = "lintr",
+                      markers = markers,
+                      basePath = package_path,
+                      autoSelect = "first")
 }
 
 highlight_string <- function(message, column_number = NULL, ranges = NULL) {
