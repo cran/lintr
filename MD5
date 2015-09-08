@@ -1,4 +1,4 @@
-ae3eb63c565a545e04957a06b987eed8 *DESCRIPTION
+77ee9d424167d576e81de3f43216c5a6 *DESCRIPTION
 8259ed2136ce11bb745a489cd3ae3a62 *LICENSE
 cd4992c74821ea6177a6fc8168102e14 *NAMESPACE
 7fbf979b1600eced18fcc1f84af186f4 *R/aaa.R
@@ -24,13 +24,13 @@ f9f8e2b09382555068c5a61967d10267 *R/objects_linter.R
 a60011a11b9afe88d7078c7024848c29 *R/settings.R
 c02e8dca6d2330df356e07870d9ca054 *R/single_quotes_linter.R
 43bb2b4522eb133aece8c1f5e2946539 *R/spaces_inside_linter.R
-625c87fe87e761fe6b367c55c525356a *R/spaces_left_parentheses_linter.R
+0211d1527fdcb7814439f7f7d22f5a04 *R/spaces_left_parentheses_linter.R
 e9125937454c58065f44c43141b77f9f *R/trailing_blank_lines_linter.R
 f2630be9fc858fed6bae47617088ef81 *R/trailing_whitespace_linter.R
 104adf463ddfd17d4ee5538cfefa0952 *R/tree-utils.R
 34de5b0a2ce06b67aee5317f6ff06064 *R/utils.R
 d828dc57ffeee1206a2605ab80f80682 *R/zzz.R
-d6ae48566a21c3b6099bb43b57ae29e1 *README.md
+db7e7807bd96a72d4dbbe94808fba64c *README.md
 6768dde831b20932ee4d9a5fa5417431 *build/vignette.rds
 ef52547b1921bfdb9df492d6fac786b6 *inst/doc/creating_linters.Rmd
 1ab2d40efa22310e345e0172317ea162 *inst/doc/creating_linters.html
@@ -72,7 +72,7 @@ e051aafa15a06e1e94f1f2a42b493bf9 *tests/testthat/test-error.R
 3828c24448242b1ff419fe82b8690195 *tests/testthat/test-infix_spaces_linter.R
 4d3f9ea9421d1c157614a10b1f43ffcf *tests/testthat/test-knitr_formats.R
 457fb210e159ec9998368cf878046c48 *tests/testthat/test-line_length_linter.R
-3e580d0da82b347b9d818b15134fbf83 *tests/testthat/test-methods.R
+a3fa3412d79ee42dd6d8dd8a1aa3ec6a *tests/testthat/test-methods.R
 7eb78401d0d5e38207865aa47672375a *tests/testthat/test-multiple_dots_linter.R
 87a8b11ef1393712d45927097b537e1e *tests/testthat/test-no_tab_linter.R
 ca6fe9d10a96e55c5a96bbf2f76c01e7 *tests/testthat/test-object_camel_case_linter.R
@@ -84,7 +84,7 @@ bdaff040675b01d798a81cc33f549db4 *tests/testthat/test-open_curly_linter.R
 edc0ecde032cafd8ff71667a1e66758d *tests/testthat/test-settings.R
 5541047d992a4eda38e5b9ae3ab434fb *tests/testthat/test-single_quotes_linter.R
 af9b8ef086ad35d0687ae16f2c677cd3 *tests/testthat/test-spaces_inside_linter.R
-bd32f6e880f559fccb1b241e19905576 *tests/testthat/test-spaces_left_parentheses_linter.R
+c400ac4adcdde2c5c73d9e84a9c52049 *tests/testthat/test-spaces_left_parentheses_linter.R
 e7dace989bb97033c8bb1dfd09d230cc *tests/testthat/test-trailing_blank_lines_linter.R
 2114ab7ea9a14b78a8e0699ec78f3f3f *tests/testthat/test-trailing_whitespace_linter.R
 ef52547b1921bfdb9df492d6fac786b6 *vignettes/creating_linters.Rmd
