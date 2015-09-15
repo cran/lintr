@@ -1,4 +1,4 @@
-77ee9d424167d576e81de3f43216c5a6 *DESCRIPTION
+bf8a4a4fefe421d6e0807eaef183f4e2 *DESCRIPTION
 8259ed2136ce11bb745a489cd3ae3a62 *LICENSE
 cd4992c74821ea6177a6fc8168102e14 *NAMESPACE
 7fbf979b1600eced18fcc1f84af186f4 *R/aaa.R
@@ -15,7 +15,7 @@ bcbc7097db004da7690df23aaf4a3954 *R/expect_lint.R
 476a808eb496341666fdba57d6c88a56 *R/get_source_expressions.R
 cb533691edffe1ae16dd177119bfa1c4 *R/infix_spaces_linter.R
 096c282a79acc9a0d133bd97e1ce68d5 *R/line_length_linter.R
-e3782419f300e4d8138e95ce4a6fd3a9 *R/lint.R
+d2c358393ad69a0ffcf9be04921f9aa8 *R/lint.R
 23bdf3072bff0f859554f9c799e05b87 *R/methods.R
 b2866ab7c6a3e9ef44cea639e05199aa *R/no_tab_linter.R
 5a2d3889a21500ca85ceefd497224f57 *R/object_usage_linter.R
@@ -63,12 +63,12 @@ c37efc49e0294190561047a63ba49607 *tests/testthat/knitr_formats/test.Rnw
 2b8bd5dd483ff3e44f9d91428564c566 *tests/testthat/test-absolute_paths_linter.R
 30cb2a5b82861926a7da04a48b44ce4e *tests/testthat/test-assignment_linter.R
 20290200e8111aff4a911b32acc60932 *tests/testthat/test-cache.R
-7c42612699910c81f64563df9422a316 *tests/testthat/test-closed_curly_linter.R
+1c6983e607fd9e75a7584f2af9bf5d80 *tests/testthat/test-closed_curly_linter.R
 7bf81814491788fce92af7647124ca2f *tests/testthat/test-commas_linter.R
 2ac799346e7009506cf7e32f8aaa6d1b *tests/testthat/test-commented_code_linter.R
 bcc5ad12c8578bf02282aee8ad3fd5f4 *tests/testthat/test-comments.R
 e051aafa15a06e1e94f1f2a42b493bf9 *tests/testthat/test-error.R
-3baef52fa3cf9188955386d0c9d38e45 *tests/testthat/test-exclusions.R
+43d42eeeec34e4408d68c2c7257a36fc *tests/testthat/test-exclusions.R
 3828c24448242b1ff419fe82b8690195 *tests/testthat/test-infix_spaces_linter.R
 4d3f9ea9421d1c157614a10b1f43ffcf *tests/testthat/test-knitr_formats.R
 457fb210e159ec9998368cf878046c48 *tests/testthat/test-line_length_linter.R
