@@ -40,7 +40,7 @@ markdown <- function(x, info, ...) {
     " ",
     "*", x$type, ":", "* ",
     "**", x$message, "**\n",
-    "```r\n\U180E", # we use a zero width unicode character here so that Github
+    "```r\n\U200B", # we use a zero width unicode character here so that Github
                     # does not strip the leading whitespace
     x$line, "\n",
     highlight_string(x$message, x$column_number, x$ranges),
@@ -116,7 +116,7 @@ names.lints <- function(x, ...) {
 split.lints <- function(x, f=NULL, ...) {
   if (is.null(f)) f <- names(x)
   splt <- split.default(x, f)
-  for(i in names(splt)) class(splt[[i]]) <- "lints"
+  for (i in names(splt)) class(splt[[i]]) <- "lints"
   return(splt)
 }
 

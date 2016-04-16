@@ -1,6 +1,6 @@
 Package: lintr
 Title: Static R Code Analysis
-Version: 0.3.3
+Version: 1.0.0
 Authors@R: person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c("aut", "cre"))
 URL: https://github.com/jimhester/lintr
 BugReports: https://github.com/jimhester/lintr/issues
@@ -10,12 +10,14 @@ Description: Checks adherence to a given style, syntax errors and possible
 Depends: R (>= 3.1.1)
 Imports: rex, crayon, codetools, stringdist, testthat, digest, igraph,
         rstudioapi (>= 0.2), httr, jsonlite, knitr, stats, utils
+Suggests: rmarkdown
 License: MIT + file LICENSE
 LazyData: true
 VignetteBuilder: knitr
+RoxygenNote: 5.0.1
 NeedsCompilation: no
-Packaged: 2015-09-14 12:24:42 UTC; jhester
+Packaged: 2016-04-15 13:27:43 UTC; jhester
 Author: Jim Hester [aut, cre]
 Maintainer: Jim Hester <james.f.hester@gmail.com>
 Repository: CRAN
-Date/Publication: 2015-09-15 01:13:27
+Date/Publication: 2016-04-16 00:10:24

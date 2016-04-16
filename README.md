@@ -1,7 +1,7 @@
 # lintr
-[![Build Status](https://app.wercker.com/status/9b57842367f234e4c7e17d01fd8a4a15/s/master "wercker status")](https://app.wercker.com/project/bykey/9b57842367f234e4c7e17d01fd8a4a15)
+[![Travis-CI Build Status](https://travis-ci.org/jimhester/lintr.svg?branch=master)](https://travis-ci.org/jimhester/lintr)
 [![codecov.io](http://codecov.io/github/jimhester/lintr/coverage.svg?branch=master)](http://codecov.io/github/jimhester/lintr?branch=master)
-[![CRAN version](http://www.r-pkg.org/badges/version/lintr)](http://cran.rstudio.com/web/packages/lintr/index.html)
+[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/lintr)](https://cran.r-project.org/package=lintr)
 
 ## Static code analysis for R ##
 ![lintr](http://i.imgur.com/acV27NV.gif "lintr")
@@ -11,7 +11,7 @@ lintr lints are automatically displayed in the RStudio Marker pane, Rstudio vers
 ![RStudio Example](http://i.imgur.com/PIKnpbn.png "Rstudio Example")
 
 ### Emacs ###
-lintr has [built-in integration](http://www.flycheck.org/manual/0.23/Supported-languages.html#R) with [flycheck](https://github.com/flycheck/flycheck) versions greater than `0.23`.
+lintr has [built-in integration](http://www.flycheck.org/en/latest/languages.html#r) with [flycheck](https://github.com/flycheck/flycheck) versions greater than `0.23`.
 ![Emacs Example](http://i.imgur.com/vquPht3.gif "Emacs Example")
 
 #### Installation ####
@@ -46,7 +46,7 @@ let g:syntastic_r_lintr_linters = "with_defaults(line_length_linter(120))"
 ```
 
 ### Sublime Text 3 ###
-lintr can be intergrated with
+lintr can be integrated with
 [Sublime Linter](https://github.com/SublimeLinter/SublimeLinter3) for on the fly linting.
 
 ![Sublime Example](http://i.imgur.com/3pua2yz.gif "Sublime Example")
@@ -70,6 +70,20 @@ In the SublimeLinter User Settings
   }
 }
 ```
+
+### Atom ###
+lintr can be integrated with
+[Linter](https://github.com/atom-community/linter) for on the fly linting.
+
+![Atom Example](http://i.imgur.com/E1Isi4T.png "Atom Example")
+
+#### Installation ####
+Simply install `linter-lintr` from within Atom or on the command line with:
+```bash
+apm install linter-lintr
+```
+
+For more information and bug reports see [Atom linter-lintr](https://github.com/AtomLinter/linter-lintr).
 
 ## Available linters ##
 
@@ -178,7 +192,7 @@ to the commit or pull request with the lints found and they will also be
 printed on Travis-CI or Wercker.  If you want to disable the commenting you can
 set the environment variable `LINTR_COMMENT_BOT=false`.
 
-## Installation of develment version ##
+## Installation of development version ##
 To install the latest development version of lintr from GitHub
 
 ```r

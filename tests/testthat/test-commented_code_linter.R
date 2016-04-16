@@ -32,7 +32,7 @@ test_that("returns the correct linting", {
     NULL,
     commented_code_linter)
 
-  test_ops <- append(ops[ops != "%[^%]*%"], values= c("%>%", "%anything%"))
+  test_ops <- append(ops[ops != "%[^%]*%"], values = c("%>%", "%anything%"))
   for (op in test_ops) {
     expect_lint(paste("i", op, "1", collapse = ""), NULL, commented_code_linter)
 
@@ -45,16 +45,4 @@ test_that("returns the correct linting", {
       commented_code_linter)
   }
 
-  # TODO handle commented code which spans multiple lines
-  #expect_lint(c("# for (i in a) {",
-                #"#   i <- 1",
-                #"# }",
-                #"# comment without code"),
-    #list(
-      #c(message = rex("Commented code should be removed")),
-      #c(message = rex("Commented code should be removed")),
-      #c(message = rex("Commented code should be removed"))
-      #),
-    #NULL,
-    #commented_code_linter)
 })
