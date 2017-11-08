@@ -1,7 +1,7 @@
-3bc4c66a40db3f83e856972681dea0e5 *DESCRIPTION
+0d77a226e83cb5c3aab8d269619d1cb1 *DESCRIPTION
 bc3a849060d69db9eb35174f4bc8bcef *LICENSE
 544235878b714b97a12f40f5fd68a237 *NAMESPACE
-07bbefc496c7704b62f660225cf4f42a *NEWS.md
+36eaae4457cdfab83dd41ead0dcf1674 *NEWS.md
 2660d5f816fae32b8e8739b65ec1ebcb *R/aaa.R
 9932e0b058444ba06e39c1f1d5d54d0d *R/absolute_paths_linter.R
 a784cbbf5d87d0487412589767fb93de *R/assignment_linter.R
@@ -31,10 +31,10 @@ f2630be9fc858fed6bae47617088ef81 *R/trailing_whitespace_linter.R
 3b3320d8a9bfda07f2fcf1b2a484a5a4 *R/tree-utils.R
 e6399de5761c42c75cb762e71e4289e5 *R/utils.R
 e5a62643743a730894aeecdd7bac5645 *R/zzz.R
-29419e7d4cfb7c91aab76514f9aab35b *README.md
-d6a9450940783664fd74edf221ca83e9 *build/vignette.rds
+2634179c6aeccf9ad2123eea6c48af0e *README.md
+b46d4283d060bc9fc83a1e32ce0c44fb *build/vignette.rds
 ef52547b1921bfdb9df492d6fac786b6 *inst/doc/creating_linters.Rmd
-e7b82a17565e95fbce29ee8970cd6a47 *inst/doc/creating_linters.html
+f0e0478345742586ab2828bf269e22d2 *inst/doc/creating_linters.html
 99e2dcf364f1a17436a52bac9e87e84a *inst/example/bad.R
 e5bb171c1954a5a7aa7dbaaa504da65f *inst/syntastic/lintr.vim
 5015f629ad4d04dc7c4b5d76eebf02c5 *man/Lint.Rd
@@ -62,7 +62,7 @@ c37efc49e0294190561047a63ba49607 *tests/testthat/knitr_formats/test.Rnw
 52a1f46b64423940155df41059342c51 *tests/testthat/knitr_formats/test.Rtxt
 2b8bd5dd483ff3e44f9d91428564c566 *tests/testthat/test-absolute_paths_linter.R
 30cb2a5b82861926a7da04a48b44ce4e *tests/testthat/test-assignment_linter.R
-20290200e8111aff4a911b32acc60932 *tests/testthat/test-cache.R
+f8ca1cda08477b6765259a8efac506f9 *tests/testthat/test-cache.R
 1c6983e607fd9e75a7584f2af9bf5d80 *tests/testthat/test-closed_curly_linter.R
 3db3533bc58a464cce64820deffee724 *tests/testthat/test-commas_linter.R
 0f1af709603fab193303b62b65886d50 *tests/testthat/test-commented_code_linter.R
