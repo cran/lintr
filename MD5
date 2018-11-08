@@ -1,7 +1,7 @@
-0d77a226e83cb5c3aab8d269619d1cb1 *DESCRIPTION
+28e9f9e196c1cdb4f0727765d302c336 *DESCRIPTION
 bc3a849060d69db9eb35174f4bc8bcef *LICENSE
 544235878b714b97a12f40f5fd68a237 *NAMESPACE
-36eaae4457cdfab83dd41ead0dcf1674 *NEWS.md
+e266e40000330cfe0ed76922a2b6db92 *NEWS.md
 2660d5f816fae32b8e8739b65ec1ebcb *R/aaa.R
 9932e0b058444ba06e39c1f1d5d54d0d *R/absolute_paths_linter.R
 a784cbbf5d87d0487412589767fb93de *R/assignment_linter.R
@@ -13,7 +13,7 @@ f94daab2fbe6dff5de11ad2a9c0752fe *R/comments.R
 da88696ebcccc6c77c277f6ae592d483 *R/exclude.R
 2e69525b07ace15f7f8102b4e7d8f35e *R/expect_lint.R
 7598db2c775a08297b6a47a9f2e2eef9 *R/extract.R
-1127841e6ba96318912e838537b52a3a *R/get_source_expressions.R
+a082279b8db88116df583b59b511d048 *R/get_source_expressions.R
 509747bbfe7c28f5bef0e397f1662476 *R/infix_spaces_linter.R
 096c282a79acc9a0d133bd97e1ce68d5 *R/line_length_linter.R
 d6d96ea351e54b13c48f4fda77f5af2d *R/lint.R
@@ -31,10 +31,10 @@ f2630be9fc858fed6bae47617088ef81 *R/trailing_whitespace_linter.R
 3b3320d8a9bfda07f2fcf1b2a484a5a4 *R/tree-utils.R
 e6399de5761c42c75cb762e71e4289e5 *R/utils.R
 e5a62643743a730894aeecdd7bac5645 *R/zzz.R
-2634179c6aeccf9ad2123eea6c48af0e *README.md
-b46d4283d060bc9fc83a1e32ce0c44fb *build/vignette.rds
+047495fa052277f309d620a6bf6c3d62 *README.md
+f452eeba2a3c7e211f1b0eec43674cb9 *build/vignette.rds
 ef52547b1921bfdb9df492d6fac786b6 *inst/doc/creating_linters.Rmd
-f0e0478345742586ab2828bf269e22d2 *inst/doc/creating_linters.html
+573936b944167e1ff3f96e24bbe9afcd *inst/doc/creating_linters.html
 99e2dcf364f1a17436a52bac9e87e84a *inst/example/bad.R
 e5bb171c1954a5a7aa7dbaaa504da65f *inst/syntastic/lintr.vim
 5015f629ad4d04dc7c4b5d76eebf02c5 *man/Lint.Rd

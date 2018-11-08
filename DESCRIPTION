@@ -1,6 +1,6 @@
 Package: lintr
 Title: A 'Linter' for R Code
-Version: 1.0.2
+Version: 1.0.3
 Authors@R: person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c("aut", "cre"))
 URL: https://github.com/jimhester/lintr
 BugReports: https://github.com/jimhester/lintr/issues
@@ -16,8 +16,8 @@ LazyData: true
 VignetteBuilder: knitr
 RoxygenNote: 6.0.1
 NeedsCompilation: no
-Packaged: 2017-11-08 15:30:13 UTC; jhester
+Packaged: 2018-11-08 16:39:01 UTC; jhester
 Author: Jim Hester [aut, cre]
 Maintainer: Jim Hester <james.f.hester@gmail.com>
 Repository: CRAN
-Date/Publication: 2017-11-08 15:35:50 UTC
+Date/Publication: 2018-11-08 17:10:10 UTC
