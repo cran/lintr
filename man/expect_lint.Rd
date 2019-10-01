@@ -7,21 +7,45 @@
 expect_lint(content, checks, ..., file = NULL)
 }
 \arguments{
-\item{content}{the file content to be linted}
+\item{content}{a character vector for the file content to be linted, each vector element
+representing a line of text.}
 
-\item{checks}{a list of named vectors of checks to be performed.  Performs
-different checks depending on the value of checks.
-\itemize{
-  \item NULL check if the lint returns no lints.
-  \item unnamed-vector check if the lint's message matches the value.
-  \item named-vector check if the lint's field matches the named field.
-  \item list-vectors check if the given lint matches (use if more than one lint is returned for the content)
-}}
+\item{checks}{checks to be performed:
+\describe{
+  \item{NULL}{check that no lints are returned.}
+  \item{single string or regex object}{check that the single lint returned has a matching
+  message.}
+  \item{named list}{check that the single lint returned has fields that match. Accepted fields
+  are the same as those taken by \code{\link{Lint}}.}
+  \item{list of named lists}{for each of the multiple lints returned, check that it matches
+  the checks in the corresponding named list (as described in the point above).}
+}
+Named vectors are also accepted instead of named lists, but this is a compatibility feature that
+is not recommended for new code.}
 
-\item{...}{one or more linters to use for the check}
+\item{...}{arguments passed to \code{\link{lint}}, e.g. the linters or cache to use.}
 
-\item{file}{if not \code{NULL} read content from a file rather than from \code{content}}
+\item{file}{if not \code{NULL}, read content from the specified file rather than from \code{content}.}
+}
+\value{
+\code{NULL}, invisibly.
 }
 \description{
-Lint expectation
+This is an expectation function to test that the lints produced by \code{lint} satisfy a number
+of checks.
+}
+\examples{
+# no expected lint
+expect_lint("a", NULL, trailing_blank_lines_linter)
+
+# one expected lint
+expect_lint("a\\n", "superfluous", trailing_blank_lines_linter)
+expect_lint("a\\n", list(message="superfluous", line_number=2), trailing_blank_lines_linter)
+
+# several expected lints
+expect_lint("a\\n\\n", list("superfluous", "superfluous"), trailing_blank_lines_linter)
+expect_lint(
+  "a\\n\\n",
+  list(list(message="superfluous", line_number=2), list(message="superfluous", line_number=3)),
+  trailing_blank_lines_linter)
 }

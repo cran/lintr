@@ -3,96 +3,125 @@
 #' \code{\link[base]{eval}} on the code, so do not use with untrusted code.
 #' @export
 object_usage_linter <-  function(source_file) {
-  # we need to evaluate each expression in order to use checkUsage on it.
+  # we only want to run on the full file
+  if (is.null(source_file$file_lines)) {
+    return()
+  }
+
+  # If there is no xml data just return
+  if (is.null(source_file$xml_parsed_content)) {
+    return()
+  }
+
+  source_file$parsed_content <- source_file$full_parsed_content
 
   pkg_name <- pkg_name(find_package(dirname(source_file$filename)))
   if (!is.null(pkg_name)) {
-    parent_env <- try(getNamespace(pkg_name), silent = TRUE)
+    parent_env <- try_silently(getNamespace(pkg_name))
   }
   if (is.null(pkg_name) || inherits(parent_env, "try-error")) {
     parent_env <- globalenv()
   }
   env <- new.env(parent = parent_env)
 
-  globals <- mget(".__global__",
-    parent_env,
-    ifnotfound = list(NULL))$`.__global__`
+  declared_globals <- try_silently(utils::globalVariables(package = pkg_name %||% globalenv()))
 
-  mapply(assign, globals, MoreArgs = list(value = function(...) NULL, envir = env))
+  symbols <- get_assignment_symbols(source_file$xml_parsed_content)
 
-  # add file locals to the environment
-  try(eval(source_file$parsed_content, envir = env), silent = TRUE)
+  # Just assign them an empty function
+  for(symbol in symbols) {
+    assign(symbol, function(...) invisible(), envir = env)
+  }
 
   all_globals <- unique(recursive_ls(env))
 
-  lapply(ids_with_token(source_file, rex(start, "FUNCTION"), fun = re_matches),
-    function(loc) {
-      id <- source_file$parsed_content$id[loc]
+  fun_info <- get_function_assignments(source_file$xml_parsed_content)
 
-      parent_ids <- parents(source_file$parsed_content, id, simplify = FALSE)
+  lapply(seq_len(NROW(fun_info)), function(i) {
+    info <- fun_info[i, ]
 
-      # not a top level function, so just return.
-      if (length(parent_ids) > 3L) {
-        return(NULL)
-      }
-
-      suppressWarnings(
-        suppressMessages(
-          fun <- try(eval(
-              parse(
-                text = source_file$content,
-                keep.source = TRUE
-                ),
-              envir = env), silent = TRUE)
-        )
+    code <- get_content(lines = source_file$content[seq(info$line1, info$line2)], info)
+    fun <- try_silently(eval(envir = env,
+      parse(
+        text = code,
+        keep.source = TRUE
       )
+    ))
 
-      if (!inherits(fun, "try-error")) {
-        res <- parse_check_usage(fun)
+    if (inherits(fun, "try-error")) {
+      return()
+    }
+    res <- parse_check_usage(fun)
 
-        locals <- codetools::findFuncLocals(formals(fun), body(fun))
+    lapply(which(!is.na(res$message)),
+      function(row_num) {
+        row <- res[row_num, ]
 
-        both <- c(locals, names(formals(fun)), all_globals)
+        if (row$name %in% declared_globals) {
+          return()
+        }
 
-        lapply(which(!is.na(res$message)),
-          function(row_num) {
-            row <- res[row_num, ]
+        org_line_num <- as.integer(row$line_number) + info$line1 - 1L
 
-            # if a no visible binding message suggest an alternative
-            if (re_matches(row$message,
-                rex("no visible"))) {
+        line <- source_file$content[as.integer(org_line_num)]
 
-              suggestion <- try(both[stringdist::amatch(row$name, both, maxDist = 2)], silent = TRUE)
+        row$name <- re_substitutes(row$name, rex("<-"), "")
 
-              if (!inherits(suggestion, "try-error") && !is.na(suggestion)) {
-                row$message <- paste0(row$message, ", Did you mean '", suggestion, "'?")
-              }
+        location <- re_matches(line,
+          rex(row$name),
+          locations = TRUE)
 
-            }
+        Lint(
+          filename = source_file$filename,
+          line_number = row$line_number,
+          column_number = location$start,
+          type = "warning",
+          message = row$message,
+          line = line,
+          ranges = list(c(location$start, location$end)),
+          linter = "object_usage_linter"
+        )
+      })
+  })
+}
 
-            org_line_num <- as.integer(row$line_number) + as.integer(names(source_file$lines)[1]) - 1L
+get_assignment_symbols <- function(xml) {
+  left_assignment_symbols <- xml2::xml_text(xml2::xml_find_all(xml, "expr[LEFT_ASSIGN]/expr[1]/*"))
 
-            line <- source_file$lines[as.character(org_line_num)]
+  equal_assignment_symbols <- xml2::xml_text(xml2::xml_find_all(xml, "equal_assign/expr[1]/*"))
 
-            row$name <- re_substitutes(row$name, rex("<-"), "")
+  assign_fun_symbols <- xml2::xml_text(xml2::xml_find_all(xml, "expr[expr[SYMBOL_FUNCTION_CALL/text()='assign']]/expr[2]/*"))
 
-            location <- re_matches(line,
-              rex(row$name),
-              locations = TRUE)
+  set_method_fun_symbols <- xml2::xml_text(xml2::xml_find_all(xml, "expr[expr[SYMBOL_FUNCTION_CALL/text()='setMethod']]/expr[2]/*"))
 
-            Lint(
-              filename = source_file$filename,
-              line_number = org_line_num,
-              column_number = location$start,
-              type = "warning",
-              message = row$message,
-              line = line,
-              ranges = list(c(location$start, location$end)),
-              linter = "object_usage_linter"
-              )
-          })
-      }
-    })
+  symbols <- c(left_assignment_symbols, equal_assignment_symbols, assign_fun_symbols, set_method_fun_symbols)
+
+  # remove quotes or backticks from the beginning or the end
+  symbols <- gsub("^[`'\"]|['\"`]$", "", symbols)
+
+  symbols
+}
+
+get_function_assignments <- function(xml) {
+  left_assignment_functions <- xml2::xml_find_all(xml, "expr[LEFT_ASSIGN][expr[2][FUNCTION]]/expr[2]")
+
+  equal_assignment_functions <- xml2::xml_find_all(xml, "equal_assign[expr[2]][expr[FUNCTION]]/expr[2]")
+
+  assign_fun_assignment_functions <- xml2::xml_find_all(xml, "expr[expr[SYMBOL_FUNCTION_CALL/text()='assign']]/expr[3]")
+
+  set_method_fun_assignment_functions <- xml2::xml_find_all(xml, "expr[expr[SYMBOL_FUNCTION_CALL/text()='setMethod']]/expr[3]")
+
+  funs <- c(left_assignment_functions, equal_assignment_functions, assign_fun_assignment_functions, set_method_fun_assignment_functions)
+
+  get_attr <- function(x, attr) as.integer(xml2::xml_attr(x, attr))
+
+  data.frame(
+    line1 = viapply(funs, get_attr, "line1"),
+    line2 = viapply(funs, get_attr, "line2"),
+    col1 = viapply(funs, get_attr, "col1"),
+    col2 = viapply(funs, get_attr, "col2"),
+    stringsAsFactors = FALSE
+  )
 }
 
 parse_check_usage <- function(expression) {
@@ -106,7 +135,7 @@ parse_check_usage <- function(expression) {
   try(codetools::checkUsage(expression, report = report))
 
   function_name <- rex(anything, ": ")
-  line_info <- rex(" ", anything, ":", capture(name = "line_number", digits), ")")
+  line_info <- rex(" ", "(", capture(name = "path", non_spaces), ":", capture(name = "line_number", digits), ")")
 
   res <- re_matches(vals,
     rex(function_name,

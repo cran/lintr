@@ -22,11 +22,26 @@ closed_curly_linter <- function(allow_single_line = FALSE) {
                return()
              }
 
+             if (length(tokens_after) &&
+                 tokens_after[[1]] %in% c("')'", "','")) {
+               return()
+             }
+
              has_expression_before <- any(tokens_before %in% "expr")
 
              has_expression_after <- any(tokens_after %in% "expr")
 
              has_else_after <- any(tokens_after %in% "ELSE")
+
+             line <- source_file$lines[as.character(parsed$line1)]
+             content_after <- unname(substr(line, parsed$col1 + 1L, nchar(line)))
+             content_before <- unname(substr(line, 1, parsed$col1 - 1L))
+
+             double_curly <- rex::re_matches(content_after, rex::rex(start, "}")) || rex::re_matches(content_before, rex::rex("}", end))
+
+             if (double_curly) {
+               return()
+             }
 
              # if the closing curly has an expression on the same line, and there is
              # not also an else

@@ -1,5 +1,5 @@
 in_ci <- function() {
-  isTRUE(logical_env("CI"))
+  in_travis() || in_wercker()
 }
 
 ci_type <- function() {
@@ -76,6 +76,6 @@ github_comment <- function(text, info = NULL, token = settings$comment_token) {
   }
 
   if (httr::status_code(response) >= 300) {
-    message(httr::http_condition(response, "error", message = httr::content(response, as = "text")))
+    message(httr::http_condition(response, "error", task = httr::content(response, as = "text")))
   }
 }

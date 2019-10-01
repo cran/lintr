@@ -4,24 +4,36 @@
 #' issues.  Supports on the fly checking of R code edited with Emacs, Vim and
 #' Sublime Text.
 #' @name lintr
-#' @seealso \code{\link{lint}}, \code{\link{lint_package}}, \code{\link{linters}}
+#' @seealso \code{\link{lint}}, \code{\link{lint_package}}, \code{\link{lint_dir}}, \code{\link{linters}}
 #' @importFrom stats na.omit
 #' @importFrom utils capture.output getParseData relist
 NULL
 
-#' Lint a given file
+#' Lint a file
 #'
-#' Apply one or more linters to a file and return a list of lints found.
+#' Apply one or more linters to a file and return the lints found.
+#' @name lint_file
 #' @param filename the given filename to lint.
-#' @param linters a list of linter functions to apply see \code{\link{linters}}
+#' @param linters a named list of linter functions to apply see \code{\link{linters}}
 #' for a full list of default and available linters.
-#' @param cache toggle caching of lint results, if passed a character vector
-#' uses that file as the cache.
+#' @param cache given a logical, toggle caching of lint results. If passed a
+#' character string, store the cache in this directory.
 #' @param ... additional arguments passed to \code{\link{exclude}}.
 #' @param parse_settings whether to try and parse the settings
+#' @return A list of lint objects.
 #' @export
-#' @name lint_file
 lint <- function(filename, linters = NULL, cache = FALSE, ..., parse_settings = TRUE) {
+
+  inline_data <- rex::re_matches(filename, rex::rex(newline))
+  if (inline_data) {
+    content <- gsub("\n$", "", filename)
+    filename <- tempfile()
+    on.exit(unlink(filename))
+    writeLines(text = content, con = filename, sep = "\n")
+  }
+
+  filename <- normalizePath(filename)  # to ensure a unique file in cache
+  source_expressions <- get_source_expressions(filename)
 
   if (isTRUE(parse_settings)) {
     read_settings(filename)
@@ -30,29 +42,35 @@ lint <- function(filename, linters = NULL, cache = FALSE, ..., parse_settings = 
 
   if (is.null(linters)) {
     linters <- settings$linters
+    names(linters) <- auto_names(linters)
   } else if (!is.list(linters)) {
     name <- deparse(substitute(linters))
-   linters <- list(linters)
+    linters <- list(linters)
     names(linters) <- name
+  } else {
+    names(linters) <- auto_names(linters)
   }
-
-  source_expressions <- get_source_expressions(filename)
 
   lints <- list()
   itr <- 0
 
-  if (isTRUE(cache)) {
-    cache <- settings$cache_directory
-  } else if (is.logical(cache)) {
-    cache <- character(0)
+  cache_path <- if (isTRUE(cache)) {
+    settings$cache_directory
+  } else if (is.character(cache)) {
+    cache
+  } else {
+    character(0)
   }
 
-  if (length(cache)) {
-    lint_cache <- load_cache(filename, cache)
+  if (length(cache_path)) {
+    lint_cache <- load_cache(filename, cache_path)
     lints <- retrieve_file(lint_cache, filename, linters)
     if (!is.null(lints)) {
       return(exclude(lints, ...))
     }
+    cache = TRUE
+  } else {
+    cache = FALSE
   }
 
   for (expr in source_expressions$expressions) {
@@ -81,13 +99,20 @@ lint <- function(filename, linters = NULL, cache = FALSE, ..., parse_settings = 
 
   lints <- structure(reorder_lints(flatten_lints(lints)), class = "lints")
 
-
   if (isTRUE(cache)) {
     cache_file(lint_cache, filename, linters, lints)
-    save_cache(lint_cache, filename)
+    save_cache(lint_cache, filename, cache_path)
   }
 
-  exclude(lints, ...)
+  res <- exclude(lints, ...)
+
+  # simplify filename if inline
+  if (inline_data) {
+    for (i in seq_along(res)) {
+      res[[i]][["filename"]] <- "<text>"
+    }
+  }
+  res
 }
 
 reorder_lints <- function(lints) {
@@ -101,45 +126,64 @@ reorder_lints <- function(lints) {
     ]
 }
 
-#' Lint a package
+#' Lint a directory
 #'
-#' Apply one or more linters to all of the R files in a package.
-#' @param path the path to the base directory of the package, if \code{NULL},
-#' the base directory will be searched for by looking in the parent directories
-#' of the current directory.
+#' Apply one or more linters to all of the R files in a directory
+#' @param path the path to the base directory, by default,
+#' it will be searched in the parent directories of the current directory.
 #' @param relative_path if \code{TRUE}, file paths are printed using their path
-#' relative to the package base directory.  If \code{FALSE}, use the full
+#' relative to the base directory.  If \code{FALSE}, use the full
 #' absolute path.
-#' @param ... additional arguments passed to \code{\link{lint}}
+#' @param ... additional arguments passed to \code{\link{lint}}, e.g.
+#' \code{cache} or \code{linters}.
+#' @param exclusions exclusions for \code{\link{exclude}}, relative to the
+#' package path.
+#' @param pattern pattern for files, by default it will take files with .R or .r extension.
+#' @inherit lint_file return
+#' @inheritParams lint_file
+#' @examples
+#' \dontrun{
+#'   lint_dir()
+#'   lint_dir(
+#'     linters = list(semicolon_terminator_linter())
+#'     cache = TRUE,
+#'     exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R")
+#'   )
+#' }
 #' @export
-lint_package <- function(path = ".", relative_path = TRUE, ...) {
-  path <- find_package(path)
+lint_dir <- function(path = ".", relative_path = TRUE, ..., exclusions = NULL, pattern = rex::rex(".", one_of("Rr"), end), parse_settings = TRUE) {
 
-  read_settings(path)
-  on.exit(clear_settings, add = TRUE)
+  if (isTRUE(parse_settings)) {
+    read_settings(path)
+    on.exit(clear_settings, add = TRUE)
+  }
 
-  names(settings$exclusions) <- normalizePath(file.path(path, names(settings$exclusions)))
-
-  files <- dir(
-    path = file.path(path,
-                     c("R",
-                       "tests",
-                       "inst")
-                     ),
-    pattern = rex::rex(".", one_of("Rr"), end),
+  files <- dir(path,
+    pattern = pattern,
     recursive = TRUE,
     full.names = TRUE
   )
 
-  files <- normalizePath(files)
+  # Remove fully ignored files to avoid reading & parsing
+  to_exclude <- vapply(
+    seq_len(length(files)),
+    function(i) {
+      file <- files[i]
+      file %in% names(exclusions) && exclusions[[file]] == Inf
+    },
+    logical(1)
+  )
+  files <- files[!to_exclude]
 
-  lints <- flatten_lints(lapply(files,
-      function(file) {
-        if (interactive()) {
-          message(".", appendLF = FALSE)
-        }
-        lint(file, ..., parse_settings = FALSE)
-      }))
+  lints <- flatten_lints(lapply(
+    files,
+    function(file) {
+      if (interactive()) {
+        message(".", appendLF = FALSE)
+      }
+      lint(file, ..., parse_settings = FALSE, exclusions = exclusions)
+    }
+  ))
 
   if (interactive()) {
     message() # for a newline
@@ -148,11 +192,14 @@ lint_package <- function(path = ".", relative_path = TRUE, ...) {
   lints <- reorder_lints(lints)
 
   if (relative_path == TRUE) {
-    lints[] <- lapply(lints,
+    path <- normalizePath(path, mustWork = FALSE)
+    lints[] <- lapply(
+      lints,
       function(x) {
-        x$filename <- re_substitutes(x$filename, rex(normalizePath(path), one_of("/", "\\")), "")
+        x$filename <- re_substitutes(x$filename, rex(path, one_of("/", "\\")), "")
         x
-      })
+      }
+    )
     attr(lints, "path") <- path
   }
 
@@ -161,21 +208,87 @@ lint_package <- function(path = ".", relative_path = TRUE, ...) {
   lints
 }
 
-find_package <- function(path = getwd()) {
-  start_wd <- getwd()
-  on.exit(setwd(start_wd))
-  setwd(path)
 
-  prev_path <- ""
-  while (!file.exists(file.path(prev_path, "DESCRIPTION"))) {
-    # this condition means we are at the root directory, so give up
-    if (prev_path %==% getwd()) {
+#' Lint a package
+#'
+#' Apply one or more linters to all of the R files in a package.
+#' @param path the path to the base directory of the package, if \code{NULL},
+#' it will be searched in the parent directories of the current directory.
+#' @inherit lint_file return
+#' @inheritParams lint_dir
+#' @examples
+#' \dontrun{
+#'   lint_package()
+#'
+#'   lint_package(
+#'     linters = with_defaults(semicolon_linter = semicolon_terminator_linter())
+#'     cache = TRUE,
+#'     exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R")
+#'   )
+#' }
+#' @export
+lint_package <- function(path = ".", relative_path = TRUE, ..., exclusions = list("R/RppExports.R")) {
+  path <- find_package(path)
+
+  read_settings(path)
+  on.exit(clear_settings, add = TRUE)
+
+  exclusions <- normalize_exclusions(c(exclusions, settings$exclusions), FALSE)
+
+  lints <- lint_dir(file.path(path, c("R", "tests", "inst")), relative_path = FALSE, exclusions = exclusions, parse_settings = FALSE, ...)
+
+  if (isTRUE(relative_path)) {
+    path <- normalizePath(path, mustWork = FALSE)
+    lints[] <- lapply(
+      lints,
+      function(x) {
+        x$filename <- re_substitutes(x$filename, rex(path, one_of("/", "\\")), "")
+        x
+      }
+    )
+    attr(lints, "path") <- path
+  }
+
+  lints
+}
+
+
+has_description <- function(path) {
+  file.exists(file.path(path, "DESCRIPTION"))
+}
+
+find_package <- function(path) {
+  path <- normalizePath(path, mustWork = FALSE)
+
+  while(!has_description(path)) {
+    path <- dirname(path)
+    if (is_root(path)) {
       return(NULL)
     }
-    prev_path <- getwd()
-    setwd("..")
   }
-  prev_path
+
+  path
+}
+
+is_root <- function(path) {
+  identical(path, dirname(path))
+}
+
+has_config <- function(path, config) {
+  file.exists(file.path(path, config))
+}
+
+find_config2 <- function(path) {
+  config <- basename(getOption("lintr.linter_file"))
+  path <- normalizePath(path, mustWork = FALSE)
+
+  while (!has_config(path, config)) {
+    path <- dirname(path)
+    if (is_root(path)) {
+      return(character())
+    }
+  }
+  return(file.path(path, config))
 }
 
 pkg_name <- function(path = find_package()) {
@@ -189,16 +302,16 @@ pkg_name <- function(path = find_package()) {
 #' Create a \code{Lint} object
 #' @param filename path to the source file that was linted.
 #' @param line_number line number where the lint occurred.
-#' @param column_number column the lint occurred.
+#' @param column_number column number where the lint occurred.
 #' @param type type of lint.
 #' @param message message used to describe the lint error
 #' @param line code source where the lint occurred
-#' @param ranges ranges on the line that should be emphasized.
+#' @param ranges a list of ranges on the line that should be emphasized.
 #' @param linter name of linter that created the Lint object.
 #' @export
-Lint <- function(filename, line_number = 1L, column_number = NULL,
+Lint <- function(filename, line_number = 1L, column_number = 1L,
   type = c("style", "warning", "error"),
-  message = "", line = "", ranges = NULL, linter = NULL) {
+  message = "", line = "", ranges = NULL, linter = "") {
 
   type <- match.arg(type)
 
@@ -206,7 +319,7 @@ Lint <- function(filename, line_number = 1L, column_number = NULL,
     list(
       filename = filename,
       line_number = as.integer(line_number),
-      column_number = as.integer(column_number) %||% 1L,
+      column_number = as.integer(column_number),
       type = type,
       message = message,
       line = line,
@@ -244,6 +357,45 @@ rstudio_source_markers <- function(lints) {
                       markers = markers,
                       basePath = package_path,
                       autoSelect = "first")
+}
+
+#' Checkstyle Report for lint results
+#'
+#' Generate a report of the linting results using the
+#' \href{http://checkstyle.sourceforge.net/}{Checkstyle} XML format.
+#' @param lints the linting results.
+#' @param filename the name of the output report
+#' @export
+checkstyle_output <- function(lints, filename = "lintr_results.xml") {
+
+  # package path will be NULL unless it is a relative path
+  package_path <- attr(lints, "path")
+
+  # setup file
+  d <- xml2::xml_new_document()
+  n <- xml2::xml_add_child(d, "checkstyle", version = paste0("lintr-", utils::packageVersion("lintr")))
+
+  # output the style markers to the file
+  lapply(split(lints, names(lints)), function(lints_per_file) {
+    filename <- if (!is.null(package_path)) {
+      file.path(package_path, lints_per_file[[1]]$filename)
+    } else {
+      lints_per_file[[1]]$filename
+    }
+    f <- xml2::xml_add_child(n, "file", name = filename)
+
+    lapply(lints_per_file, function(x) {
+      xml2::xml_add_child(f, "error",
+        line = as.character(x$line_number),
+        column = as.character(x$column_number),
+        severity = switch(x$type,
+          style = "info",
+          x$type),
+        message = x$message)
+    })
+  })
+
+  xml2::write_xml(d, filename)
 }
 
 highlight_string <- function(message, column_number = NULL, ranges = NULL) {

@@ -1,5 +1,5 @@
 `%||%` <- function(x, y) {
-  if (is.null(x) || length(x) <= 0) {
+  if (is.null(x) || length(x) <= 0 || is.na(x[[1L]])) {
     y
   } else {
     x
@@ -9,6 +9,7 @@
 `%==%` <- function(x, y) {
   identical(x, y)
 }
+
 `%!=%` <- function(x, y) {
   !identical(x, y)
 }
@@ -57,6 +58,21 @@ fix_names <- function(x, default) {
   x
 }
 
+names2 <- function(x) {
+  names(x) %||% rep("", length(x))
+}
+
+auto_names <- function(x) {
+  nms <- names2(x)
+  missing <- nms == ""
+  if (all(!missing)) return(nms)
+
+  deparse2 <- function(x) paste(deparse(x, 500L), collapse = "")
+  defaults <- vapply(x[missing], deparse2, character(1), USE.NAMES = FALSE)
+
+  nms[missing] <- defaults
+  nms
+}
 
 blank_text <- function(s, re, shift_start = 0, shift_end = 0) {
   m <- gregexpr(re, s, perl = TRUE)
@@ -79,17 +95,6 @@ quoted_blanks <- function(matches, shift_start = 0, shift_end = 0) {
   matches
 }
 
-ids_with_token <- function(source_file, value, fun = `==`) {
-  if (source_file$parsed_content$col1 %==% integer(0)) {
-    return(NULL)
-  }
-  loc <- which(fun(source_file$parsed_content$token, value))
-  if (loc %==% integer(0)) {
-    NULL
-  } else {
-    loc
-  }
-}
 
 # The following functions is from dplyr
 names2 <- function(x) {
@@ -103,10 +108,6 @@ recursive_ls <- function(env) {
   else {
     ls(envir = env)
   }
-}
-
-with_id <- function(source_file, id) {
-  source_file$parsed_content[id, ]
 }
 
 get_content <- function(lines, info) {
@@ -133,3 +134,43 @@ rot <- function(ch, k = 13) {
   A <- c(letters, LETTERS, " '")
   I <- seq_len(k); chartr(p0(A), p0(c(A[-I], A[I])), ch)
 }
+
+trim_ws <- function(x) {
+  sub("^\\s+", "", sub("\\s+$", "", x))
+}
+
+`@` <- function(x, y) {
+  name <- as.character(substitute(y))
+  attr(x, name, exact = TRUE)
+}
+
+global_parsed_content <- function(source_file) {
+  if (exists("file_lines", source_file)) {
+    source_file$parsed_content
+  }
+}
+
+global_xml_parsed_content <- function(source_file) {
+  if (exists("file_lines", source_file)) {
+    source_file$xml_parsed_content
+  }
+}
+
+get_file_line <- function(source_file, line) {
+  unname(source_file$file_lines[[as.numeric(line)]])
+}
+
+p <- function(...) paste0(...)
+
+lengths <- function(x) vapply(x, length, integer(1L))
+
+try_silently <- function(expr) {
+  suppressWarnings(
+    suppressMessages(
+      try(expr, silent = TRUE)
+    )
+  )
+}
+
+viapply <- function(x, ...) vapply(x, ..., FUN.VALUE = integer(1))
+vcapply <- function(x, ...) vapply(x, ..., FUN.VALUE = character(1))

@@ -1,82 +1,101 @@
 #' Lint expectation
 #'
-#' @param content the file content to be linted
-#' @param checks a list of named vectors of checks to be performed.  Performs
-#' different checks depending on the value of checks.
-#' \itemize{
-#'   \item NULL check if the lint returns no lints.
-#'   \item unnamed-vector check if the lint's message matches the value.
-#'   \item named-vector check if the lint's field matches the named field.
-#'   \item list-vectors check if the given lint matches (use if more than one lint is returned for the content)
+#' This is an expectation function to test that the lints produced by \code{lint} satisfy a number
+#' of checks.
+#'
+#' @param content a character vector for the file content to be linted, each vector element
+#' representing a line of text.
+#' @param checks checks to be performed:
+#' \describe{
+#'   \item{NULL}{check that no lints are returned.}
+#'   \item{single string or regex object}{check that the single lint returned has a matching
+#'   message.}
+#'   \item{named list}{check that the single lint returned has fields that match. Accepted fields
+#'   are the same as those taken by \code{\link{Lint}}.}
+#'   \item{list of named lists}{for each of the multiple lints returned, check that it matches
+#'   the checks in the corresponding named list (as described in the point above).}
 #' }
-#' @param ... one or more linters to use for the check
-#' @param file if not \code{NULL} read content from a file rather than from \code{content}
+#' Named vectors are also accepted instead of named lists, but this is a compatibility feature that
+#' is not recommended for new code.
+#' @param ... arguments passed to \code{\link{lint}}, e.g. the linters or cache to use.
+#' @param file if not \code{NULL}, read content from the specified file rather than from \code{content}.
+#' @return \code{NULL}, invisibly.
+#' @examples
+#' # no expected lint
+#' expect_lint("a", NULL, trailing_blank_lines_linter)
+#'
+#' # one expected lint
+#' expect_lint("a\n", "superfluous", trailing_blank_lines_linter)
+#' expect_lint("a\n", list(message="superfluous", line_number=2), trailing_blank_lines_linter)
+#'
+#' # several expected lints
+#' expect_lint("a\n\n", list("superfluous", "superfluous"), trailing_blank_lines_linter)
+#' expect_lint(
+#'   "a\n\n",
+#'   list(list(message="superfluous", line_number=2), list(message="superfluous", line_number=3)),
+#'   trailing_blank_lines_linter)
+#' @export
 expect_lint <- function(content, checks, ..., file = NULL) {
-
-  if (!is.null(file)) {
-    content <- readChar(file, file.info(file)$size)
+  if (is.null(file)) {
+    file <- tempfile()
+    on.exit(unlink(file))
+    writeLines(content, con = file, sep = "\n")
   }
 
-  expectation_lint(content, checks, ...)
-}
+  lints <- lint(file, ...)
+  n_lints <- length(lints)
+  lint_str <- if (n_lints) {paste0(c("", lints), collapse="\n")} else {""}
 
-expectation_lint <- function(content, checks, ...) {
-
-  filename <- tempfile()
-  on.exit(unlink(filename))
-  cat(file = filename, content, sep = "\n")
-
-  lints <- lint(filename, ...)
-
-  linter_names <- substitute(alist(...))[-1]
-
+  wrong_number_fmt  <- "got %d lints instead of %d%s"
   if (is.null(checks)) {
-    return(testthat::expect(length(lints) %==% 0L,
-        paste0(paste(collapse = ", ", linter_names),
-          " returned ", print(lints),
-          " lints when it was expected to return none!"),
-        ))
+    msg <- sprintf(wrong_number_fmt, n_lints, length(checks), lint_str)
+    return(testthat::expect(n_lints %==% 0L, msg))
   }
 
-  if (!is.list(checks)) {
+  if (!is.list(checks) | !is.null(names(checks))) { # vector or named list
     checks <- list(checks)
   }
   checks[] <- lapply(checks, fix_names, "message")
 
-  if (length(lints) != length(checks)) {
-    return(testthat::expect(FALSE,
-        paste0(paste(collapse = ", ", linter_names),
-          " did not return ", length(checks),
-          " lints as expected from content:", content, lints)))
+  if (n_lints != length(checks)) {
+    msg <- sprintf(wrong_number_fmt, n_lints, length(checks), lint_str)
+    return(testthat::expect(FALSE, msg))
   }
 
-  itr <- 0L #nolint
-  res <- mapply(function(lint, check) {
-    itr <- itr + 1L
-    lapply(names(check), function(field) {
-      value <- lint[[field]]
-      check <- check[[field]]
-      if (field == "message") {
-        testthat::expect(re_matches(value, check),
-          sprintf("lint: %d %s: %s did not match: %s",
-            itr,
-            field,
-            value,
-            check))
-      } else {
-        testthat::expect(`==`(value, check),
-          sprintf("lint: %d %s: %s did not match: %s",
-            itr,
-            field,
-            value,
-            check))
-      }
+  local({
+    itr <- 0L #nolint
+    lint_fields <- names(formals(Lint))
+    Map(function(lint, check) {
+      itr <<- itr + 1L
+      lapply(names(check), function(field) {
+        if (!field %in% lint_fields) {
+          stop(sprintf(
+            "check #%d had an invalid field: \"%s\"\nValid fields are: %s\n",
+            itr, field, toString(lint_fields)))
+        }
+        check <- check[[field]]
+        value <- lint[[field]]
+        msg <- sprintf("check #%d: %s %s did not match %s",
+                       itr, field, deparse(value), deparse(check))
+               # deparse ensures that NULL, list(), etc are handled gracefully
+        exp <- if (field == "message") {
+          re_matches(value, check)
+        } else {
+          isTRUE(all.equal(value, check))
+        }
+        if (!is.logical(exp)) {
+          stop("Invalid regex result, did you mistakenly have a capture group in the regex? Be sure to escape parenthesis with `[]`", call. = FALSE)
+        }
+        testthat::expect(exp, msg)
+        })
+      },
+      lints,
+      checks)
     })
-  },
-  lints,
-  checks)
-  res[[1]]
+
+  invisible(NULL)
 }
+
 
 #' Test that the package is lint free
 #'
@@ -88,6 +107,7 @@ expectation_lint <- function(content, checks, ...) {
 #' @export
 expect_lint_free <- function(...) {
   testthat::skip_on_cran()
+  testthat::skip_on_covr()
 
   lints <- lint_package(...)
   has_lints <- length(lints) > 0
@@ -97,9 +117,7 @@ expect_lint_free <- function(...) {
     lint_output <- paste(collapse = "\n", capture.output(print(lints)))
   }
   result <- testthat::expect(!has_lints,
-                        paste(sep = "\n",
-                              "Not lint free",
-                              lint_output))
+                             paste(sep = "\n", "Not lint free", lint_output))
 
   invisible(result)
 }

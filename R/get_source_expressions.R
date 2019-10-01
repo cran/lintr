@@ -78,18 +78,16 @@ get_source_expressions <- function(filename) {
   e <- NULL
 
   parsed_content <- get_source_file(source_file, error = lint_error)
-
   tree <- generate_tree(parsed_content)
 
   expressions <- lapply(top_level_expressions(parsed_content), function(loc) {
     line_nums <- parsed_content$line1[loc]:parsed_content$line2[loc]
     expr_lines <- source_file$lines[line_nums]
     names(expr_lines) <- line_nums
-
     content <- get_content(expr_lines, parsed_content[loc, ])
 
     id <- as.character(parsed_content$id[loc])
-    edges <- igraph::E(tree)[from(igraph::subcomponent(tree, id, mode = "out"))]
+    edges <- component_edges(tree, id)
     pc <- parsed_content[c(loc, edges), ]
     list(
       filename = filename,
@@ -97,6 +95,7 @@ get_source_expressions <- function(filename) {
       column = parsed_content[loc, "col1"],
       lines = expr_lines,
       parsed_content = pc,
+      xml_parsed_content = xml2::read_xml(xmlparsedata::xml_parse_data(pc)),
       content = content,
 
       find_line = find_line_fun(content),
@@ -110,8 +109,10 @@ get_source_expressions <- function(filename) {
     list(
       filename = filename,
       file_lines = source_file$lines,
-      content = source_file$lines
-      )
+      content = source_file$lines,
+      full_parsed_content = parsed_content,
+      xml_parsed_content = if (!is.null(parsed_content)) xml2::read_xml(xmlparsedata::xml_parse_data(parsed_content))
+    )
 
   list(expressions = expressions, error = e, lines = source_file$lines)
 }
@@ -132,7 +133,7 @@ get_source_file <- function(source_file, error = identity) {
     assign("e", e,  envir = parent.frame())
   }
 
-  fix_eq_assign(adjust_columns(getParseData(source_file)))
+  fix_eq_assigns(fix_column_numbers(fix_tab_indentations(source_file)))
 }
 
 find_line_fun <- function(content) {
@@ -168,9 +169,8 @@ find_column_fun <- function(content) {
   }
 }
 
-# This is used to adjust the columns that getParseData reports from bytes to
-# letters.
-adjust_columns <- function(content) {
+# Adjust the columns that getParseData reports from bytes to characters.
+fix_column_numbers <- function(content) {
   if (is.null(content)) {
     return(NULL)
   }
@@ -206,9 +206,75 @@ adjust_columns <- function(content) {
   content
 }
 
+
+# Fix column numbers when there are tabs
+# getParseData() counts 1 tab as a variable number of spaces instead of one:
+# https://github.com/wch/r-source/blame/e7401b68ab0e032fce3e376aaca9a5431619b2b4/src/main/gram.y#L512
+# The number of spaces is so that the code is brought to the next 8-character indentation level e.g:
+#   "1\t;"          -> "1       ;"
+#   "12\t;"         -> "12      ;"
+#   "123\t;"        -> "123     ;"
+#   "1234\t;"       -> "1234    ;"
+#   "12345\t;"      -> "12345   ;"
+#   "123456\t;"     -> "123456  ;"
+#   "1234567\t;"    -> "1234567 ;"
+#   "12345678\t;"   -> "12345678        ;"
+#   "123456789\t;"  -> "123456789       ;"
+#   "1234567890\t;" -> "1234567890      ;"
+fix_tab_indentations <- function(source_file) {
+  pc <- getParseData(source_file)
+
+  if (is.null(pc)) {
+    return(NULL)
+  }
+
+  tab_cols <- gregexpr("\t", source_file[["lines"]], fixed = TRUE)
+  names(tab_cols) <- seq_along(tab_cols)
+  tab_cols <- tab_cols[!is.na(tab_cols)]  # source lines from .Rmd and other files are NA
+  tab_cols <- lapply(tab_cols, function(x) {if (x[[1L]] < 0L) {NA} else {x}})
+  tab_cols <- tab_cols[!is.na(tab_cols)]
+
+  if (!length(tab_cols)) {
+    return(pc)
+  }
+
+  pc_cols <- c("line1", "line2", "col1", "col2")
+  dat <- matrix(data = unlist(pc[, pc_cols], use.names = FALSE), ncol = 2)
+  lines <- as.integer(names(tab_cols))
+  for (i in seq_along(tab_cols)) {
+    is_curr_line <- dat[, 1L] == lines[[i]]
+    if (any(is_curr_line)) {
+      line_tab_offsets <- tab_offsets(tab_cols[[i]])
+      for (j in seq_along(tab_cols[[i]])) {
+        is_line_to_change <- is_curr_line & dat[, 2L] > tab_cols[[i]][[j]]
+        if (any(is_line_to_change)) {
+          dat[is_line_to_change, 2L] <- dat[is_line_to_change, 2L] - line_tab_offsets[[j]]
+        }
+      }
+    }
+  }
+  pc[, pc_cols] <- dat
+  pc
+}
+
+
+tab_offsets <- function(tab_columns) {
+  cum_offset <- 0L
+  vapply(
+    tab_columns - 1L,
+    function(tab_idx) {
+      offset <- 7L - (tab_idx + cum_offset) %% 8L  # using a tab width of 8 characters
+      cum_offset <<- cum_offset + offset
+      offset
+    },
+    integer(1L),
+    USE.NAMES = FALSE
+  )
+}
+
 # This function wraps equal assign expressions in a parent expression so they
 # are the same as the corresponding <- expression
-fix_eq_assign <- function(pc) {
+fix_eq_assigns <- function(pc) {
   if (is.null(pc)) {
     return(NULL)
   }
@@ -295,7 +361,7 @@ prev_with_parent <- function(pc, loc) {
 
   loc <- which(with_parent$id == id)
 
-  return(which(pc$id == with_parent$id[loc - 1L]))
+  which(pc$id == with_parent$id[loc - 1L])
 }
 
 next_with_parent <- function(pc, loc) {
@@ -308,12 +374,12 @@ next_with_parent <- function(pc, loc) {
 
   loc <- which(with_parent$id == id)
 
-  return(which(pc$id == with_parent$id[loc + 1L]))
+  which(pc$id == with_parent$id[loc + 1L])
 }
 
 top_level_expressions <- function(pc) {
   if (is.null(pc)) {
-    return(NULL)
+    return(integer(0))
   }
-  which(pc$parent == 0L & pc$token %in% c("expr","equal_assign"))
+  which(pc$parent <= 0L)
 }
