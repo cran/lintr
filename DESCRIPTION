@@ -1,9 +1,10 @@
 Package: lintr
 Title: A 'Linter' for R Code
-Version: 2.0.0
+Version: 2.0.1
 Authors@R: c(
     person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c("aut", "cre")),
-    person("Florent", "Angly", role = "aut")
+    person("Florent", "Angly", role = "aut"),
+    person("Russ", "Hyde", role = "aut")
     )
 URL: https://github.com/jimhester/lintr
 BugReports: https://github.com/jimhester/lintr/issues
@@ -11,7 +12,7 @@ Description: Checks adherence to a given style, syntax errors and possible
     semantic issues.  Supports on the fly checking of R code edited with 'RStudio IDE', 'Emacs',
     'Vim', 'Sublime Text' and 'Atom'.
 Depends: R (>= 3.2)
-Imports: rex, crayon, codetools, cyclocomp, stringdist, testthat,
+Imports: rex, crayon, codetools, cyclocomp, testthat (>= 2.2.1),
         digest, rstudioapi (>= 0.2), httr (>= 1.2.1), jsonlite, knitr,
         stats, utils, xml2 (>= 1.0.0), xmlparsedata (>= 1.0.3)
 Suggests: rmarkdown, mockery
@@ -19,11 +20,11 @@ License: MIT + file LICENSE
 LazyData: true
 Encoding: UTF-8
 VignetteBuilder: knitr
-RoxygenNote: 6.1.1
-Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'addins.R'
-        'assignment_linter.R' 'cache.R' 'closed_curly_linter.R'
-        'commas_linter.R' 'comment_linters.R' 'comments.R'
-        'cyclocomp_linter.R' 'declared_functions.R'
+RoxygenNote: 7.0.2
+Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'actions.R'
+        'addins.R' 'assignment_linter.R' 'cache.R'
+        'closed_curly_linter.R' 'commas_linter.R' 'comment_linters.R'
+        'comments.R' 'cyclocomp_linter.R' 'declared_functions.R'
         'object_name_linters.R' 'deprecated.R' 'equals_na_lintr.R'
         'exclude.R' 'expect_lint.R' 'extract.R'
         'extraction_operator_linter.R' 'function_left_parentheses.R'
@@ -40,9 +41,10 @@ Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'addins.R'
         'undesirable_operator_linter.R'
         'unneeded_concatenation_linter.R' 'with_id.R' 'zzz.R'
 NeedsCompilation: no
-Packaged: 2019-10-01 15:45:57 UTC; jhester
+Packaged: 2020-02-18 21:46:51 UTC; jhester
 Author: Jim Hester [aut, cre],
-  Florent Angly [aut]
+  Florent Angly [aut],
+  Russ Hyde [aut]
 Maintainer: Jim Hester <james.f.hester@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-10-01 18:10:03 UTC
+Date/Publication: 2020-02-19 06:00:13 UTC

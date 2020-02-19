@@ -1,3 +1,22 @@
+# lintr 2.0.1
+
+## New features
+
+* lintr now supports GitHub Actions and will print the lints as warning messages if lints are printed during an action.
+
+## Minor fixes and features
+
+* `single_quote_linter()` no longer causes a print issue when open quote
+  appears at a column > than close quote (#457, @jamieRowen)
+* `absolute_path_linter()` and `nonportable_path_linter()` now handle
+  file-paths that are wrapped with double-quotes (#433, #437, @russHyde).
+* `get_source_expressions()` has been changed to handle `expr_or_assign_or_help`
+  tokens arising when parsing code containing equals-assignments in R-devel
+  (#403, #456, @russHyde).
+* `object_usage_linter` has been changed to ensure lint-position is indicated
+  relative to the start of the file, rather than the start of a defining
+  function (#432, @russHyde).
+
 # lintr 2.0.0
 
 lintr 2.0.0 is a major release, and incorporates development changes since the last major release (1.0.0) in 2016-04-16.
@@ -36,18 +55,18 @@ lintr 2.0.0 is a major release, and incorporates development changes since the l
 * New `unneeded_concatenation_linter()` lints uses of c() with a constant or no
   arguments (@fangly).
 
-# New functions for writing linters
+## New functions for writing linters
 * Export `expect_lint()` (#178, #210)
 * Export `ids_with_token()` and `with_id()` (#297 @stufield)
 * linters can use the XML parse tree as well now, via the
   https://github.com/MangoTheCat/xmlparsedata package (#154, @gaborcsardi)
 
-# New functions for users
+## New functions for users
 * New `lint_dir()` function to lint files under a given directory (@arekbee, #360)
 * New `summary.lints()` function to summarize the linter results (#260, #262, @wlandau).
 * New `checkstyle_output()` function to output lints to checkstyle XML output (#156, @joshkgold)
 
-# Linter fixes
+## Linter fixes
 * `closed_curly_linter()` now allows closing parenthesis or comma after closing curly brace (#167, @Enchufa2)
 * `commas_linter()` now handles missing arguments calls properly (#145)
 * `commented_code_linter()` now relaxed, it no longer lints comments within roxygen blocks
