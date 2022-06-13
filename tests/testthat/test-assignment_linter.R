@@ -1,35 +1,46 @@
-context("assignment_linter")
-options(encoding = "UTF-8")
 test_that("returns the correct linting", {
-  expect_lint("blah", NULL, assignment_linter)
+  linter <- assignment_linter()
+  msg <- rex::rex("Use <-, not =, for assignment.")
 
-  expect_lint("blah <- 1", NULL, assignment_linter)
+  expect_lint("blah", NULL, linter)
+  expect_lint("blah <- 1", NULL, linter)
+  expect_lint("blah<-1", NULL, linter)
+  expect_lint("fun(blah=1)", NULL, linter)
 
-  expect_lint("blah<-1", NULL, assignment_linter)
+  expect_lint("blah=1", msg, linter)
+  expect_lint("blah = 1", msg, linter)
+  expect_lint("blah = fun(1)", msg, linter)
+  expect_lint("fun((blah = fun(1)))", msg, linter)
 
-  expect_lint("fun(blah=1)", NULL, assignment_linter)
-
-  expect_lint("blah=1",
-    rex("Use <-, not =, for assignment."),
-      assignment_linter)
-
-    expect_lint("blah = 1",
-      rex("Use <-, not =, for assignment."),
-        assignment_linter)
-
-  expect_lint("blah = fun(1)",
-    rex("Use <-, not =, for assignment.")
-    , assignment_linter)
-
-  expect_lint("blah = fun(1) {",
+  expect_lint(
+    "blah = fun(1) {",
     list(
-      rex("Use <-, not =, for assignment."),
+      msg,
       c(type = "error", "unexpected")
-      ),
-      assignment_linter)
+    ),
+    linter
+  )
+})
 
-  expect_lint("fun((blah = fun(1)))",
-    rex("Use <-, not =, for assignment."),
-    assignment_linter)
+test_that("arguments handle <<- and ->/->> correctly", {
+  expect_lint("1 -> blah", rex::rex("Use <-, not ->, for assignment."), assignment_linter())
+  expect_lint("1 ->> blah", rex::rex("->> can have hard-to-predict behavior;"), assignment_linter())
 
+  # <<- is only blocked optionally
+  expect_lint("1 <<- blah", NULL, assignment_linter())
+  expect_lint(
+    "1 <<- blah",
+    rex::rex("<<- can have hard-to-predict behavior;"),
+    assignment_linter(allow_cascading_assign = FALSE)
+  )
+
+  # blocking -> can be disabled
+  expect_lint("1 -> blah", NULL, assignment_linter(allow_right_assign = TRUE))
+  expect_lint("1 ->> blah", NULL, assignment_linter(allow_right_assign = TRUE))
+  # blocked under cascading assign but not under right assign --> blocked
+  expect_lint(
+    "1 ->> blah",
+    rex::rex("->> can have hard-to-predict behavior;"),
+    assignment_linter(allow_cascading_assign = FALSE, allow_right_assign = TRUE)
+  )
 })

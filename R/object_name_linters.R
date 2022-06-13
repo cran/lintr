@@ -1,77 +1,95 @@
-#' @describeIn linters  Check that object names conform to a naming style.
+object_name_xpath <- local({
+  xp_assignment_target <- paste(
+    "not(preceding-sibling::OP-DOLLAR)",
+    "and ancestor::expr[",
+    " following-sibling::LEFT_ASSIGN",
+    " or preceding-sibling::RIGHT_ASSIGN",
+    " or following-sibling::EQ_ASSIGN",
+    "]",
+    "and not(ancestor::expr[",
+    " preceding-sibling::OP-LEFT-BRACKET",
+    " or preceding-sibling::LBB",
+    "])"
+  )
+
+  paste0(
+    "//SYMBOL[", xp_assignment_target, "] | ",
+    "//STR_CONST[", xp_assignment_target, "] | ",
+    "//SYMBOL_FORMALS"
+  )
+})
+
+#' Object name linter
+#'
+#' Check that object names conform to a naming style.
+#' The default naming styles are "snake_case" and "symbols".
+#'
+#' Note when used in a package, in order to ignore objects imported
+#'   from other namespaces, this linter will attempt [getNamespaceExports()]
+#'   whenever an `import(PKG)` or `importFrom(PKG, ...)` statement is found
+#'   in your NAMESPACE file. If [requireNamespace()] fails (e.g., the package
+#'   is not yet installed), the linter won't be able to ignore some usages
+#'   that would otherwise be allowed.
+#'
+#' Suppose, for example, you have `import(upstream)` in your NAMESPACE,
+#'   which makes available its exported S3 generic function
+#'   `a_really_quite_long_function_name` that you then extend in your package
+#'   by defining a corresponding method for your class `my_class`.
+#'   Then, if `upstream` is not installed when this linter runs, a lint
+#'   will be thrown on this object (even though you don't "own" its full name).
+#'
+#' The best way to get lintr to work correctly is to install the package so
+#'   that it's available in the session where this linter is running.
+#'
 #' @param styles A subset of
 #'   \Sexpr[stage=render, results=rd]{lintr:::regexes_rd}. A name should
 #'   match at least one of these styles.
+#' @evalRd rd_tags("object_name_linter")
+#' @seealso [linters] for a complete list of linters available in lintr.
 #' @export
-object_name_linter <- function(styles = "snake_case") {
-
-  .or_string <- function(xs) {
-    # returns "<S> or <T>"
-    # where <T> is the last string in xs
-    # where <S> is a comma-separated string of all entries in xs except <T>
-    len <- length(xs)
-    if (len <= 1) {
-      return(xs)
-    }
-    comma_sepd_prefix <- paste(xs[-len], collapse = ", ")
-    paste(comma_sepd_prefix, "or", xs[len])
-  }
-
+object_name_linter <- function(styles = c("snake_case", "symbols")) {
   styles <- match.arg(styles, names(style_regexes), several.ok = TRUE)
 
-  lint_msg <- paste0(
-    "Variable and function name style should be ", .or_string(styles), "."
+  lint_message <- paste0(
+    "Variable and function name style should be ",
+    glue::glue_collapse(styles, sep = ", ", last = " or "), "."
   )
 
-  function (source_file) {
-    x <- global_xml_parsed_content(source_file)
-    if (is.null(x)) {
-      return()
+  Linter(function(source_expression) {
+    if (!is_lint_level(source_expression, "file")) {
+      return(list())
     }
 
-    xpath <- paste0(
-      # Left hand assignments
-      "//expr[SYMBOL or STR_CONST][following-sibling::LEFT_ASSIGN or following-sibling::EQ_ASSIGN]/*",
+    xml <- source_expression$full_xml_parsed_content
 
-      # Or
-      " | ",
-
-      # Right hand assignments
-      "//expr[SYMBOL or STR_CONST][preceding-sibling::RIGHT_ASSIGN]/*",
-
-      # Or
-      " | ",
-
-      # Formal argument names
-      "//SYMBOL_FORMALS"
-    )
-
-    assignments <- xml2::xml_find_all(x, xpath)
+    assignments <- xml2::xml_find_all(xml, object_name_xpath)
 
     # Retrieve assigned name
     nms <- strip_names(
-      as.character(xml2::xml_find_first(assignments, "./text()")))
+      xml2::xml_text(assignments)
+    )
 
+    # run namespace_imports at run-time, not "compile" time to allow package structure to change
     generics <- c(
-      declared_s3_generics(x),
-      namespace_imports()$fun,
-      names(.knownS3Generics),
-      .S3PrimitiveGenerics, ls(baseenv()))
+      declared_s3_generics(xml),
+      imported_s3_generics(namespace_imports(find_package(source_expression$filename)))$fun,
+      .base_s3_generics
+    )
+    generics <- unique(generics[nzchar(generics)])
 
-    style_matches <- lapply(styles, function(x) {
-      check_style(nms, x, generics)
+    style_matches <- lapply(styles, function(style) {
+      check_style(nms, style, generics)
     })
 
     matches_a_style <- Reduce(`|`, style_matches)
 
-    lapply(
+    xml_nodes_to_lints(
       assignments[!matches_a_style],
-      object_lint2,
-      source_file,
-      lint_msg,
-      "object_name_linter"
+      source_expression,
+      lint_message = lint_message,
+      type = "style"
     )
-  }
+  })
 }
 
 check_style <- function(nms, style, generics = character()) {
@@ -80,14 +98,20 @@ check_style <- function(nms, style, generics = character()) {
   # mark empty names and NA names as conforming
   conforming[!nzchar(nms) | is.na(conforming)] <- TRUE
 
-  if (any(!conforming)) {
-    possible_s3 <- re_matches(nms[!conforming], rex(capture(name = "generic", something), ".", capture(name = "method", something)))
-    if (any(!is.na(possible_s3))) {
+  if (!all(conforming)) {
+    possible_s3 <- re_matches(
+      nms[!conforming],
+      rex(start, capture(name = "generic", or(generics)), ".", capture(name = "method", something), end)
+    )
+    if (!all(is.na(possible_s3))) {
       has_generic <- possible_s3$generic %in% generics
 
       # If they are not conforming, but are S3 methods then ignore them
       conforming[!conforming][has_generic] <- TRUE
     }
+    # exclude namespace hooks like .onLoad, .Last.lib, etc (#500)
+    is_special <- is_special_function(nms[!conforming])
+    conforming[!conforming][is_special] <- TRUE
   }
   conforming
 }
@@ -99,218 +123,95 @@ strip_names <- function(x) {
   x
 }
 
-
-object_lint2 <- function(expr, source_file, message, type) {
-  symbol <- xml2::as_list(expr)
-  Lint(
-    filename = source_file$filename,
-    line_number = symbol@line1,
-    column_number = symbol@col1,
-    type = "style",
-    message = message,
-    line = source_file$file_lines[as.numeric(symbol@line1)],
-    ranges = list(as.numeric(c(symbol@col1, symbol@col2))),
-    linter = type
-    )
-}
-
-make_object_linter <- function(fun) {
-  function(source_file) {
-
-    token_nums <- ids_with_token(
-      source_file, rex(start, "SYMBOL" %if_next_isnt% "_SUB"), fun=re_matches
-    )
-    if(length(token_nums) == 0){
-      return(list())
-    }
-    tokens <- with_id(source_file, token_nums)
-    names <- unquote(tokens[["text"]]) # remove surrounding backticks
-
-    keep_indices <- which(
-      !is_operator(names) &
-        !is_known_generic(names) &
-        !is_base_function(names)
-    )
-
-    lapply(
-      keep_indices,
-      function(i) {
-        token <- tokens[i, ]
-        name <- names[i]
-        if (is_declared_here(token, source_file) &&
-            !is_external_reference(source_file, token[["id"]])) {
-          fun(source_file, token)
-        }
-      }
-    )
-  }
-}
-
-known_generic_regex <- rex(
-  start,
-  or(
-    unique(
-      # Clean up "as.data.frame" to "as", "names<-" to "names", etc
-      re_substitutes(c(names(.knownS3Generics), .S3PrimitiveGenerics),
-                     rex(or(dot, "<-"), anything, end), "")
-    )
-  ),
-  dot
+# see ?".onLoad", ?Startup, and ?quit. Remove leading dot to match behavior of strip_names().
+#   All of .onLoad, .onAttach, and .onUnload are used in base packages,
+#   and should be caught in is_base_function; they're included here for completeness / stability
+#   (they don't strictly _have_ to be defined in base, so could in principle be removed).
+#   .Last.sys and .First.sys are part of base itself, so aren't included here.
+special_funs <- c(
+  "onLoad",
+  "onAttach",
+  "onUnload",
+  "onDetach",
+  "Last.lib",
+  "First",
+  "Last"
 )
 
-is_known_generic <- function(name) {
-  re_matches(name, known_generic_regex)
+is_special_function <- function(x) {
+  x %in% special_funs
 }
-
-is_declared_here <- function(token, source_file) {
-  # The object was declared here if one of the following is true:
-  #   * its name precedes a left assign ("<-" or "<<-") or equal assign ("=")
-  #   * its name follows a right assign ("->" or "->>")
-  #   * its name is not "..." and its first sibling token is a function definition
-  filt <- filter_out_token_type(source_file[["parsed_content"]], "expr")
-  assign_regex <- rex(start, or("EQ_ASSIGN", "LEFT_ASSIGN"), end)
-  l <- which(filt[, "id"] == token[["id"]])
-  if ( (l + 1L <= dim(filt)[[1L]] && re_matches(filt[l + 1L, "token"], assign_regex)) ||
-       (l >= 2L  &&  filt[l - 1L, "token"] == "RIGHT_ASSIGN") ) {
-    # assigned variable or function parameter
-    TRUE
-  } else {
-    sibling_ids <- siblings(source_file[["parsed_content"]], token[["id"]], 1L)
-    if (token[["text"]] != "..." &&
-        length(sibling_ids) &&
-        with_id(source_file, sibling_ids[[1L]])[["text"]] == "function" ) {
-      # parameter in function definition
-      TRUE
-    } else {
-      FALSE
-    }
-  }
-}
-
-is_operator <- function(name) {
-  name != make.names(name)
-}
-
-is_external_reference <- function(source_file, id) {
-  sibling_tokens <- with_id(source_file, siblings(source_file$parsed_content, id, 1))$token
-  any(sibling_tokens %in% c("NS_GET", "NS_GET_INT"))
-}
-
-base_pkgs <- c(
-  "base",
-  "tools",
-  "utils",
-  "grDevices",
-  "graphics",
-  "stats",
-  "datasets",
-  "methods",
-  "grid",
-  "splines",
-  "stats4",
-  "compiler",
-  "parallel",
-  "MASS",
-  "lattice",
-  "Matrix",
-  "nlme",
-  "survival",
-  "boot",
-  "cluster",
-  "codetools",
-  "foreign",
-  "KernSmooth",
-  "rpart",
-  "class",
-  "nnet",
-  "spatial",
-  "mgcv"
-)
-
-base_funs <- unlist(lapply(base_pkgs,
-                           function(x) {
-                             name <- try_silently(getNamespace(x))
-                             if (!inherits(name, "try-error")) {
-                               ls(name, all.names = TRUE)
-                             }
-                           }))
-
-is_base_function <- function(x) {
-  x %in% base_funs
-}
-
-object_lint <- function(source_file, token, message, type) {
-  Lint(
-    filename = source_file$filename,
-    line_number = token$line1,
-    column_number = token$col1,
-    type = "style",
-    message = message,
-    line = source_file$lines[as.character(token$line1)],
-    ranges = list(c(token$col1, token$col2)),
-    linter = type
-    )
-}
-
-
-object_name_linter_old <- function(style = "snake_case") {
-  make_object_linter(
-    function(source_file, token) {
-      name <- unquote(token[["text"]])
-      if (!any(matches_styles(name, style))) {
-        object_lint(
-          source_file,
-          token,
-          sprintf("Variable and function name style should be %s.", paste(style, collapse = " or ")),
-          "object_name_linter"
-        )
-      }
-    }
-  )
-}
-
 
 loweralnum <- rex(one_of(lower, digit))
 upperalnum <- rex(one_of(upper, digit))
 
 style_regexes <- list(
-  "CamelCase" = rex(start, maybe("."), upper, zero_or_more(alnum), end),
-  "camelCase" = rex(start, maybe("."), lower, zero_or_more(alnum), end),
-  "snake_case"     = rex(start, maybe("."), some_of(lower, digit), any_of("_", lower, digit), end),
-  "dotted.case"    = rex(start, maybe("."), one_or_more(loweralnum), zero_or_more(dot, one_or_more(loweralnum)), end),
+  "symbols"     = rex(start, zero_or_more(none_of(alnum)), end),
+  "CamelCase"   = rex(start, maybe("."), upper, zero_or_more(alnum), end),
+  "camelCase"   = rex(start, maybe("."), lower, zero_or_more(alnum), end),
+  "snake_case"  = rex(start, maybe("."), some_of(lower, digit), any_of("_", lower, digit), end),
+  "SNAKE_CASE"  = rex(start, maybe("."), some_of(upper, digit), any_of("_", upper, digit), end),
+  "dotted.case" = rex(start, maybe("."), one_or_more(loweralnum), zero_or_more(dot, one_or_more(loweralnum)), end),
   "lowercase"   = rex(start, maybe("."), one_or_more(loweralnum), end),
   "UPPERCASE"   = rex(start, maybe("."), one_or_more(upperalnum), end)
 )
 
-regexes_rd <- paste0(collapse = ", ", paste0("\\sQuote{", names(style_regexes), "}"))
+regexes_rd <- toString(paste0("\\sQuote{", names(style_regexes), "}"))
 
-matches_styles <- function(name, styles=names(style_regexes)) {
-  invalids <- paste(styles[!styles %in% names(style_regexes)], collapse=", ")
-  if (nzchar(invalids)) {
-    valids <- paste(names(style_regexes), collapse=", ")
-    stop(sprintf("Invalid style(s) requested: %s\nValid styles are: %s\n", invalids, valids))
-  }
-  name <- re_substitutes(name, rex(start, one_or_more(dot)), "")  # remove leading dots
-  vapply(
-    style_regexes[styles],
-    re_matches,
-    logical(1L),
-    data=name
-  )
-}
-
-
-#' @describeIn linters check that object names are not too long.
+#' Object length linter
+#'
+#' Check that object names are not too long.
+#' The length of an object name is defined as the length in characters, after removing extraneous parts:
+#'
+#'  * generic prefixes for implementations of S3 generics, e.g. `as.data.frame.my_class` has length 8.
+#'  * leading `.`, e.g. `.my_hidden_function` has length 18.
+#'  * "%%" for infix operators, e.g. `%my_op%` has length 5.
+#'  * trailing `<-` for assignment functions, e.g. `my_attr<-` has length 7.
+#'
+#' Note that this behavior relies in part on having packages in your Imports available;
+#'   see the detailed note in [object_name_linter()] for more details.
+#'
+#' @param length maximum variable name length allowed.
+#' @evalRd rd_tags("object_length_linter")
+#' @seealso [linters] for a complete list of linters available in lintr.
 #' @export
 object_length_linter <- function(length = 30L) {
-  make_object_linter(function(source_file, token) {
-    if (nchar(token$text) > length) {
-        object_lint(
-          source_file,
-          token,
-          paste0("Variable and function names should not be longer than ", length, " characters."),
-          "object_length_linter"
-        )
-      }
+  lint_message <- paste("Variable and function names should not be longer than", length, "characters.")
+
+  Linter(function(source_expression) {
+    if (!is_lint_level(source_expression, "file")) {
+      return(list())
+    }
+
+    xml <- source_expression$full_xml_parsed_content
+
+    assignments <- xml2::xml_find_all(xml, object_name_xpath)
+
+    # Retrieve assigned name
+    nms <- strip_names(
+      xml2::xml_text(assignments)
+    )
+
+    # run namespace_imports at run-time, not "compile" time to allow package structure to change
+    ns_imports <- namespace_imports(find_package(source_expression$filename))
+    generics <- strip_names(c(
+      declared_s3_generics(xml),
+      imported_s3_generics(ns_imports)$fun,
+      .base_s3_generics
+    ))
+    generics <- unique(generics[nzchar(generics)])
+
+    # Remove generic function names from generic implementations
+    # This only lints S3 implementations if the class names are too long, still lints generics if they are too long.
+    nms_stripped <- re_substitutes(nms, rex(start, or(generics), "."), "")
+
+    too_long <- nchar(nms_stripped) > length
+
+    xml_nodes_to_lints(
+      assignments[too_long],
+      source_expression = source_expression,
+      lint_message = lint_message,
+      type = "style"
+    )
   })
 }

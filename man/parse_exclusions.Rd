@@ -8,7 +8,11 @@ parse_exclusions(
   file,
   exclude = settings$exclude,
   exclude_start = settings$exclude_start,
-  exclude_end = settings$exclude_end
+  exclude_end = settings$exclude_end,
+  exclude_linter = settings$exclude_linter,
+  exclude_linter_sep = settings$exclude_linter_sep,
+  lines = NULL,
+  linter_names = NULL
 )
 }
 \arguments{
@@ -19,6 +23,18 @@ parse_exclusions(
 \item{exclude_start}{regular expression used to mark the start of an excluded range}
 
 \item{exclude_end}{regular expression used to mark the end of an excluded range}
+
+\item{exclude_linter}{regular expression used to capture a list of to-be-excluded linters immediately following a
+\code{exclude} or \code{exclude_start} marker.}
+
+\item{exclude_linter_sep}{regular expression used to split a linter list into indivdual linter names for exclusion.}
+
+\item{lines}{a character vector of the content lines of \code{file}}
+
+\item{linter_names}{Names of active linters}
+}
+\value{
+A possibly named list of excluded lines, possibly for specific linters.
 }
 \description{
 read a source file and parse all the excluded lines from it

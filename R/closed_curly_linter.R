@@ -1,63 +1,49 @@
-#' @describeIn linters check that closed curly braces should always be on their
-#' own line unless they follow an else.
-#' @param allow_single_line if true allow a open and closed curly pair on the
-#' same line.
+#' Closed curly linter
+#'
+#' Check that closed curly braces are on their own line unless they follow an else, comma, or closing bracket.
+#'
+#' @param allow_single_line if `TRUE`, allow an open and closed curly pair on the same line.
+#' @evalRd rd_tags("closed_curly_linter")
+#' @seealso
+#'   [linters] for a complete list of linters available in lintr. \cr
+#'   <https://style.tidyverse.org/syntax.html#indenting>
 #' @export
 closed_curly_linter <- function(allow_single_line = FALSE) {
-  function(source_file) {
-    lapply(ids_with_token(source_file, "'}'"),
-           function(id) {
+  lintr_deprecated("closed_curly_linter", new = "brace_linter", version = "3.0.0", type = "Linter")
+  xp_cond_closed <- xp_and(c(
+    # matching { is on same line
+    if (isTRUE(allow_single_line)) {
+      "(@line1 != preceding-sibling::OP-LEFT-BRACE/@line1)"
+    },
+    # immediately followed by ",", "]" or ")"
+    "not(
+      @line1 = ancestor::expr/following-sibling::*[1][
+        self::OP-COMMA or self::OP-RIGHT-BRACKET or self::OP-RIGHT-PAREN
+      ]/@line1
+    )",
+    # double curly
+    "not(
+      (@line1 = parent::expr/following-sibling::OP-RIGHT-BRACE/@line1) or
+      (@line1 = preceding-sibling::expr/OP-RIGHT-BRACE/@line1)
+    )"
+  ))
 
-             parsed <- with_id(source_file, id)
+  xpath <- glue::glue("//OP-RIGHT-BRACE[
+    { xp_cond_closed } and (
+      (@line1 = preceding-sibling::*[1]/@line2) or
+      (@line1 = parent::expr/following-sibling::*[1][not(self::ELSE)]/@line1)
+    )
+  ]")
 
-             tokens_before <- source_file$parsed_content$token[
-                                                               source_file$parsed_content$line1 == parsed$line1 &
-                                                               source_file$parsed_content$col1 < parsed$col1]
+  Linter(function(source_expression) {
+    if (!is_lint_level(source_expression, "expression")) {
+      return(list())
+    }
 
-             tokens_after <- source_file$parsed_content$token[
-                                                              source_file$parsed_content$line1 == parsed$line1 &
-                                                              source_file$parsed_content$col1 > parsed$col1]
-             if (isTRUE(allow_single_line) &&
-                 "'{'" %in% tokens_before) {
-               return()
-             }
-
-             if (length(tokens_after) &&
-                 tokens_after[[1]] %in% c("')'", "','")) {
-               return()
-             }
-
-             has_expression_before <- any(tokens_before %in% "expr")
-
-             has_expression_after <- any(tokens_after %in% "expr")
-
-             has_else_after <- any(tokens_after %in% "ELSE")
-
-             line <- source_file$lines[as.character(parsed$line1)]
-             content_after <- unname(substr(line, parsed$col1 + 1L, nchar(line)))
-             content_before <- unname(substr(line, 1, parsed$col1 - 1L))
-
-             double_curly <- rex::re_matches(content_after, rex::rex(start, "}")) || rex::re_matches(content_before, rex::rex("}", end))
-
-             if (double_curly) {
-               return()
-             }
-
-             # if the closing curly has an expression on the same line, and there is
-             # not also an else
-             if (has_expression_before ||
-                 has_expression_after && !has_else_after) {
-               Lint(
-                    filename = source_file$filename,
-                    line_number = parsed$line1,
-                    column_number = parsed$col1,
-                    type = "style",
-                    message = "Closing curly-braces should always be on their own line, unless it's followed by an else.", # nolint
-                    line = source_file$lines[as.character(parsed$line1)],
-                    linter = "closed_curly_linter"
-                    )
-             }
-
-           })
-  }
+    xml_nodes_to_lints(
+      xml2::xml_find_all(source_expression$xml_parsed_content, xpath),
+      source_expression = source_expression,
+      lint_message = "Closing curly-braces should always be on their own line, unless they are followed by an else."
+    )
+  })
 }

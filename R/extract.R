@@ -1,46 +1,36 @@
 # content is the file content from readLines
-extract_r_source <- function(filename, lines) {
-
+extract_r_source <- function(filename, lines, error = identity) {
   pattern <- get_knitr_pattern(filename, lines)
   if (is.null(pattern$chunk.begin) || is.null(pattern$chunk.end)) {
     return(lines)
   }
 
-  starts <- grep(pattern$chunk.begin, lines, perl = TRUE)
-  ends <- filter_chunk_end_positions(
-    starts = starts,
-    ends = grep(pattern$chunk.end, lines, perl = TRUE)
-  )
-
-  # no chunks found, so just return the lines
-  if (length(starts) == 0 || length(ends) == 0) {
+  chunks <- tryCatch(get_chunk_positions(pattern = pattern, lines = lines), error = error)
+  if (inherits(chunks, "error") || inherits(chunks, "lint")) {
+    assign("e", chunks,  envir = parent.frame())
+    # error, so return empty code
     return(character())
   }
 
-  if (length(starts) != length(ends)) {
-    stop("Malformed file!", call. = FALSE)
+  # no chunks found, so just return the lines
+  if (length(chunks[["starts"]]) == 0L || length(chunks[["ends"]]) == 0L) {
+    return(character())
   }
 
   # there is no need to worry about the lines after the last chunk end
-  output <- rep.int(NA_character_, max(ends - 1))
+  output <- rep.int(NA_character_, max(chunks[["ends"]] - 1L))
   Map(
     function(start, end) {
-      if (
-        # block contains at least one line of code
-        start + 1 < end &&
-
-        # block does not set an engine (so is r code)
-        !defines_knitr_engine(lines[start])
-      ) {
-        output[seq(start + 1, end - 1)] <<- lines[seq(start + 1, end - 1)]
-      }
+      output[seq(start + 1L, end - 1L)] <<- lines[seq(start + 1L, end - 1L)]
     },
-    starts, ends)
+    chunks[["starts"]],
+    chunks[["ends"]]
+  )
   replace_prefix(output, pattern$chunk.code)
 }
 
 get_knitr_pattern <- function(filename, lines) {
-  pattern <- ("knitr" %:::% "detect_pattern")(lines, tolower( ("knitr" %:::% "file_ext")(filename)))
+  pattern <- ("knitr" %:::% "detect_pattern")(lines, tolower(("knitr" %:::% "file_ext")(filename)))
   if (!is.null(pattern)) {
     knitr::all_patterns[[pattern]]
   } else {
@@ -48,33 +38,60 @@ get_knitr_pattern <- function(filename, lines) {
   }
 }
 
+get_chunk_positions <- function(pattern, lines) {
+  starts <- filter_chunk_start_positions(
+    starts = grep(pattern$chunk.begin, lines, perl = TRUE),
+    lines = lines
+  )
+  ends <- filter_chunk_end_positions(
+    starts = starts,
+    ends = grep(pattern$chunk.end, lines, perl = TRUE)
+  )
+  # only keep those blocks that contain at least one line of code
+  keep <- which(ends - starts > 1L)
+
+  list(starts = starts[keep], ends = ends[keep])
+}
+
+filter_chunk_start_positions <- function(starts, lines) {
+  # keep blocks that don't set a knitr engine (and so contain evaluated R code)
+  drop <- defines_knitr_engine(lines[starts])
+  starts[!drop]
+}
+
 filter_chunk_end_positions <- function(starts, ends) {
   # In a valid file, possibly with plain-code-blocks,
-  # - there should be at least as many ends as starts,
-  #   and there should be an even-number of extra ends (possibly zero)
-  #   since each plain-code-block should open & close, and the open/close
-  #   tags of a plain-code-block both match the chunk.end pattern
+  # - there should be at least as many ends as starts
+  # In Rmarkdown, unevaluated blocks may open & close with the same ``` pattern
+  # that defines the end-pattern for an evaluated block
 
+  # This returns the first end-position that succeeds each start-position
   # starts (1, 3, 5, 7,        11)  --> (1, 3, 5, 7, 11)
   # ends   (2, 4, 6, 8, 9, 10, 12)  --> (2, 4, 6, 8, 12) # return this
   length_difference <- length(ends) - length(starts)
-
-  if(length_difference < 0 | length_difference %% 2 != 0) {
-    stop("Malformed file!", call. = FALSE)
-  }
-  if (length_difference == 0 && all(ends > starts)) {
+  if (length_difference == 0L && all(ends > starts)) {
     return(ends)
   }
 
   positions <- sort(c(starts = starts, ends = ends))
-  code_start_indexes <- grep("starts", names(positions))
-  code_ends <- positions[1 + code_start_indexes]
+  code_start_indexes <- grep("starts", names(positions), fixed = TRUE)
 
-  stopifnot(all(grepl("ends", names(code_ends))))
+  code_ends <- positions[pmin(1L + code_start_indexes, length(positions))]
+
+  bad_end_indexes <- grep("starts", names(code_ends), fixed = TRUE)
+  if (length(bad_end_indexes)) {
+    bad_start_positions <- positions[code_start_indexes[bad_end_indexes]]
+    # This error message is formatted like a parse error
+    stop(sprintf(
+      "<rmd>:%1$d:1: Missing chunk end for chunk (maybe starting at line %1$d).\n",
+      bad_start_positions[1L]
+    ), call. = FALSE)
+  }
+
   code_ends
 }
 
-defines_knitr_engine <- function(line) {
+defines_knitr_engine <- function(start_lines) {
   engines <- names(knitr::knit_engines$get())
 
   # {some_engine}, {some_engine label, ...} or {some_engine, ...}
@@ -86,8 +103,8 @@ defines_knitr_engine <- function(line) {
     boundary, "engine", any_spaces, "="
   )
 
-  rex::re_matches(line, explicit_engine_pattern) ||
-  rex::re_matches(line, bare_engine_pattern)
+  rex::re_matches(start_lines, explicit_engine_pattern) |
+    rex::re_matches(start_lines, bare_engine_pattern)
 }
 
 replace_prefix <- function(lines, prefix_pattern) {
@@ -100,7 +117,9 @@ replace_prefix <- function(lines, prefix_pattern) {
 
   blanks <- function(n) {
     vapply(Map(rep.int, rep.int(" ", length(n)), n, USE.NAMES = FALSE),
-      paste, "", collapse = "")
+      paste, "",
+      collapse = ""
+    )
   }
 
   regmatches(lines[non_na], m[non_na]) <-

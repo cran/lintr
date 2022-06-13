@@ -4,7 +4,9 @@
 \name{default_settings}
 \alias{default_settings}
 \title{Default lintr settings}
-\format{An object of class \code{list} of length 9.}
+\format{
+An object of class \code{list} of length 12.
+}
 \usage{
 default_settings
 }
@@ -12,6 +14,6 @@ default_settings
 Default lintr settings
 }
 \seealso{
-\code{\link{read_settings}}, \code{\link{default_linters}}
+\code{\link[=read_settings]{read_settings()}}, \link{default_linters}
 }
 \keyword{datasets}

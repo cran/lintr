@@ -1,13 +1,14 @@
-#' @describeIn linters Check that each step in a pipeline is on a new line, or
-#' the entire pipe fits on one line.
+#' Pipe continuation linter
+#'
+#' Check that each step in a pipeline is on a new line, or the entire pipe fits on one line.
+#'
+#' @evalRd rd_tags("pipe_continuation_linter")
+#' @seealso
+#'   [linters] for a complete list of linters available in lintr. \cr
+#'   <https://style.tidyverse.org/pipes.html#long-lines-2>
 #' @importFrom xml2 xml_find_all as_list
 #' @export
-pipe_continuation_linter <- function(source_file) {
-  x <- global_xml_parsed_content(source_file)
-  if (is.null(x)) {
-    return()
-  }
-
+pipe_continuation_linter <- function() {
   # For pipelines, either the whole expression should fit on a single line, or,
   # each pipe symbol within the expression should be on a separate line
 
@@ -27,48 +28,44 @@ pipe_continuation_linter <- function(source_file) {
     # rather than all ancestors.
 
     # select all pipes
-    "SPECIAL[text() = '%>%'",
-      # that are nested in a parent-expression that spans multiple lines
-      "and parent::expr[@line1 < @line2]",
-      # where the parent contains pipes that precede the pipe under scrutiny
-      "and preceding-sibling::*/descendant-or-self::SPECIAL[text() = '%>%']",
-      "and (",
-      # where a preceding sibling 'expr' [...] ends on the same line that a
-      # succeeding 'expr' starts {...}
-      # either "[a %>%\n b()] %>% {c(...)}"
-      # or     "[a %>% b(...\n)] %>% {c(...)}"
-        "(preceding-sibling::*/descendant-or-self::expr/@line2 = ",
-        "  following-sibling::*/descendant-or-self::expr/@line1)",
+    "//SPECIAL[text() = '%>%'",
+    # that are nested in a parent-expression that spans multiple lines
+    "and parent::expr[@line1 < @line2]",
+    # where the parent contains pipes that precede the pipe under scrutiny
+    "and preceding-sibling::*/descendant-or-self::SPECIAL[text() = '%>%']",
+    "and (",
+    # where a preceding sibling 'expr' [...] ends on the same line that a
+    # succeeding 'expr' starts {...}
+    # either "[a %>%\n b()] %>% {c(...)}"
+    # or     "[a %>% b(...\n)] %>% {c(...)}"
+    "(preceding-sibling::*/descendant-or-self::expr/@line2 = ",
+    "  following-sibling::*/descendant-or-self::expr/@line1)",
 
-      # or, (if the post-pipe expression starts on a subsequent line) where a
-      # preceding sibling 'expr' [...] contains a pipe character on the
-      # same line as the original pipe character |...|
-      # [a %>% b] |%>%| \n c
-       "or (@line1 = preceding-sibling::*/descendant-or-self::SPECIAL[text() = '%>%']/@line1)",
-       ")",
+    # or, (if the post-pipe expression starts on a subsequent line) where a
+    # preceding sibling 'expr' [...] contains a pipe character on the
+    # same line as the original pipe character |...|
+    # [a %>% b] |%>%| \n c
+    "or (@line1 = preceding-sibling::*/descendant-or-self::SPECIAL[text() = '%>%']/@line1)",
+    ")",
     "]"
   )
 
-  pipe_exprs <- xml_find_all(x, p("//", multiline_pipe_test))
+  Linter(function(source_expression) {
+    if (!is_lint_level(source_expression, "file")) {
+      return(list())
+    }
+    x <- source_expression$full_xml_parsed_content
 
-  lapply(pipe_exprs,
-    function(expr) {
-      x <- as_list(expr)
-      line <- get_file_line(source_file, x@line1)
-      Lint(
-        filename = source_file$filename,
-        line_number = x@line1,
-        column_number = x@col2,
-        type = "style",
-        message = p(
-          "`%>%` should always have a space before it and a new line after it,",
-          " unless the full pipeline fits on one line."
-        ),
-        line = line,
-        ranges = list(as.numeric(c(x@col1, x@col2))),
-        "pipe_continuation_linter"
-        )
-    })
+    pipe_exprs <- xml_find_all(x, multiline_pipe_test)
+
+    xml_nodes_to_lints(
+      pipe_exprs,
+      source_expression = source_expression,
+      lint_message = paste(
+        "`%>%` should always have a space before it and a new line after it,",
+        "unless the full pipeline fits on one line."
+      ),
+      type = "style"
+    )
+  })
 }
-
-utils::globalVariables(c("line1", "col1", "col2"), "lintr")

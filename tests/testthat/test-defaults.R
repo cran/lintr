@@ -1,12 +1,11 @@
-context("defaults")
-
 test_that("linters", {
   # non-empty named list of functions
   x <- default_linters
-  expect_is(x, "list")
+  expect_type(x, "list")
   expect_gt(length(x), 0L)
   expect_true(all(names(x) != ""))
-  expect_true(all(vapply(x, inherits, logical(1L), "function")))
+  expect_true(all(vapply(x, inherits, logical(1L), "linter")))
+  expect_true(all(vapply(x, is.function, logical(1L))))
 })
 
 test_that("undesirable functions and operators", {
@@ -15,10 +14,10 @@ test_that("undesirable functions and operators", {
                all_undesirable_operators, default_undesirable_operators)
 
   for (x in vars) {
-    expect_is(x, "list")
+    expect_type(x, "list")
     expect_gt(length(x), 0L)
     expect_true(all(names(x) != ""))
-    expect_true(all(vapply(x, function(x) {is.na(x) || is.character(x)}, logical(1L))))
+    expect_true(all(vapply(x, function(x) is.na(x) || is.character(x), logical(1L))))
     expect_true(all(vapply(x, length, integer(1L)) == 1L))
   }
 })
@@ -26,32 +25,25 @@ test_that("undesirable functions and operators", {
 test_that("settings", {
   # non-empty named list
   x <- default_settings
-  expect_is(x, "list")
-  expect_gt(length(x), 0L)
-  expect_true(all(names(x) != ""))
+  expect_type(default_settings, "list")
+  expect_gt(length(default_settings), 0L)
+  expect_true(all(nzchar(names(default_settings))))
 })
 
-test_that("linter_names", {
-  # If they throw a Lint() call, the name of the caught linter should match
-  # the name of the linting function
-  test_file <- "default_linter_testcode.R"
-  x <- default_linters
-  for (linter_name in names(x)) {
-    lints <- lint(test_file, linters = x[linter_name])
+skip_if_not_installed("patrick")
+patrick::with_parameters_test_that(
+  "all default linters throw lints with their name on 'default_linter_testcode.R'",
+  {
+    lints <- lint(
+      test_path("default_linter_testcode.R"),
+      linters = default_linters[[linter_name]],
+      parse_settings = FALSE
+    )
     lint_df <- as.data.frame(lints)
-    expect_true(
-      nrow(lint_df) > 0,
-      info = paste(
-        "each default linter should throw a lint on",
-        "'default_linter_testcode.R'"
-      )
-    )
-    expect_equal(
-      lint_df[["linter"]][1], linter_name,
-      info = paste(
-        "the 'linter' name reported by lint() / Lint() should match the",
-        "name of the corresponding linting function"
-      )
-    )
-  }
-})
+    expect_gt(nrow(lint_df), 0L)
+    reported_linter_name <- lint_df[["linter"]][1L]
+    expect_identical(reported_linter_name, linter_name)
+  },
+  linter_name = names(default_linters),
+  .test_name = names(default_linters)
+)

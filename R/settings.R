@@ -2,21 +2,24 @@
 #' Read lintr settings
 #'
 #' Lintr searches for settings for a given source file in the following order.
-#' \enumerate{
-#'   \item options defined as \code{linter.setting}.
-#'   \item \code{linter_file} in the same directory
-#'   \item \code{linter_file} in the project directory
-#'   \item \code{linter_file} in the user home directory
-#'   \item \code{\link{default_settings}}
-#' }
+#'  1. options defined as `linter.setting`.
+#'  2. `linter_file` in the same directory
+#'  3. `linter_file` in the project directory
+#'  4. `linter_file` in the user home directory
+#'  5. [default_settings()]
 #'
-#' The default linter_file name is \code{.lintr} but it can be changed with option
-#' \code{lintr.linter_file}.  This file is a dcf file, see \code{\link[base]{read.dcf}} for details.
+#' The default linter_file name is `.lintr` but it can be changed with option `lintr.linter_file`.
+#' This file is a dcf file, see [base::read.dcf()] for details.
 #' @param filename source file to be linted
 read_settings <- function(filename) {
   clear_settings()
 
   config_file <- find_config(filename)
+  default_encoding <- find_default_encoding(filename)
+  if (!is.null(default_encoding)) {
+    # Locally override the default for encoding if we found a smart default
+    default_settings[["encoding"]] <- default_encoding
+  }
 
   if (!is.null(config_file)) {
     f <- function(e) {
@@ -34,7 +37,12 @@ read_settings <- function(filename) {
   for (setting in names(default_settings)) {
     value <- get_setting(setting, config, default_settings)
     if (setting == "exclusions") {
-      value <- normalize_exclusions(value)
+      if (!is.null(config_file)) {
+        root <- dirname(config_file)
+      } else {
+        root <- getwd()
+      }
+      value <- normalize_exclusions(value, root = root)
     }
 
     settings[[setting]] <- value
@@ -90,6 +98,47 @@ find_config <- function(filename) {
   linter_config <- file.path(home_dir, linter_file)
   if (isTRUE(file.exists(linter_config))) {
     return(linter_config)
+  }
+
+  NULL
+}
+
+find_default_encoding <- function(filename) {
+  if (is.null(filename)) {
+    return(NULL)
+  }
+
+  pkg_path <- find_package(filename)
+  rproj_file <- find_rproj(filename)
+  pkg_enc <- get_encoding_from_dcf(file.path(pkg_path, "DESCRIPTION"))
+  rproj_enc <- get_encoding_from_dcf(rproj_file)
+
+  if (!is.null(rproj_file) && !is.null(pkg_path) && startsWith(rproj_file, pkg_path)) {
+    # Check precedence via directory hierarchy.
+    # Both paths are normalized so checking if rproj_file is within pkg_path is sufficient.
+    # Let Rproj file take precedence
+    return(rproj_enc %||% pkg_enc)
+  } else {
+    # Let DESCRIPTION file take precedence if .Rproj file is further up the directory hierarchy
+    return(pkg_enc %||% rproj_enc)
+  }
+}
+
+get_encoding_from_dcf <- function(file) {
+  if (is.null(file)) return(NULL)
+
+  encodings <- tryCatch(
+    unname(drop(read.dcf(file, "Encoding"))),
+    error = function(e) NULL,
+    warning = function(e) NULL
+  )
+
+  if (!is.null(encodings)) {
+    # Produces a warning in R <= 3.5 if encodings is NULL
+    encodings <- encodings[!is.na(encodings)]
+  }
+  if (length(encodings) > 0L) {
+    return(encodings[1L])
   }
 
   NULL

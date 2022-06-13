@@ -1,25 +1,36 @@
-#' @describeIn linters check the line length of both comments and code is less
-#' than length.
+#' Line length linter
+#'
+#' Check that the line length of both comments and code is less than `length`.
+#'
+#' @param length maximum line length allowed.
+#' @evalRd rd_tags("line_length_linter")
+#' @seealso
+#'   [linters] for a complete list of linters available in lintr. \cr
+#'   <https://style.tidyverse.org/syntax.html#long-lines>
 #' @export
-line_length_linter <- function(length) {
-  function(source_file) {
+line_length_linter <- function(length = 80L) {
+  Linter(function(source_expression) {
 
-    lapply(names(source_file$lines)[vapply(source_file$lines, nchar, integer(1)) > length],
-      function(line_number) {
-        col_start <- 1
-        line <- source_file$lines[as.character(line_number)]
-        col_end <- unname(nchar(line))
+    # Only go over complete file
+    if (!is_lint_level(source_expression, "file")) {
+      return(list())
+    }
 
-        Lint(
-          filename = source_file$filename,
-          line_number = line_number,
-          column_number = col_start,
-          type = "style",
-          message = sprintf("Lines should not be more than %d characters.", length),
-          line = line,
-          ranges = list(c(col_start, col_end)),
-          linter = "line_length_linter"
-          )
-      })
-  }
+    line_lengths <- nchar(source_expression$file_lines)
+    long_lines <- which(line_lengths > length)
+
+    lint_message <- sprintf("Lines should not be more than %d characters.", length)
+
+    lapply(long_lines, function(long_line) {
+      Lint(
+        filename = source_expression$filename,
+        line_number = long_line,
+        column_number = length + 1L,
+        type = "style",
+        message = lint_message,
+        line = source_expression$file_lines[long_line],
+        ranges = list(c(1L, line_lengths[long_line]))
+      )
+    })
+  })
 }

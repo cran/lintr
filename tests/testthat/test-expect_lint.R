@@ -1,11 +1,8 @@
-context("expect_lint")
-
-
 # testthat's expect_success() and expect_failure() can only handle the first expectation and are
 # thus less than ideal to test expect_lint(), which can process multiple lints. If you want to test
 # for failure, always put the lint check or lint field that must fail first.
 
-linter <- assignment_linter
+linter <- assignment_linter()
 msg <- "Use <-, not ="
 
 test_that("no checks", {
@@ -28,14 +25,18 @@ test_that("single check", {
 
   expect_error(expect_lint("a=1", c(message = msg, lineXXX = 1L), linter), "invalid field")
 
-  expect_failure(expect_lint("a=1", list(ranges = list(c(2L, 2L))), linter))
-  expect_success(expect_lint("\t1", list(ranges = list(c(1L, 1L))), no_tab_linter))
+  expect_failure(expect_lint("foo ()", list(ranges = list(c(2L, 2L))), function_left_parentheses_linter()))
+  expect_success(expect_lint("\t1", list(ranges = list(c(1L, 1L))), no_tab_linter()))
   expect_success(expect_lint("a=1", list(message = msg, line_number = 1L), linter))
   expect_failure(expect_lint("a=1", list(2L, msg), linter))
+
+  expect_error(expect_lint("1:nrow(x)", "(group)", seq_linter()), "Invalid regex result", fixed = TRUE)
 })
 
 test_that("multiple checks", {
-  expect_success(expect_lint(file = "exclusions-test", checks = as.list(rep(msg, 6L)), linters = linter))
+  expect_success(
+    expect_lint(file = "exclusions-test", checks = as.list(rep(msg, 9L)), linters = linter, parse_settings = FALSE)
+  )
 
   expect_success(expect_lint("a=1; b=2", list(msg, msg), linter))
   expect_success(expect_lint("a=1; b=2", list(c(message = msg), c(message = msg)), linter))
@@ -46,7 +47,20 @@ test_that("multiple checks", {
 
   expect_success(expect_lint("a=1; b=2", list(list(line_number = 1L), list(line_number = 2L)), linter))
   expect_failure(expect_lint("a=1; b=2", list(list(line_number = 2L), list(line_number = 2L)), linter))
-  expect_success(expect_lint("\t1\n\t2", list("tabs", list(column_number = 1L, ranges = list(c(1L, 1L)))), no_tab_linter))
+  expect_success(
+    expect_lint("\t1\n\t2", list("tabs", list(column_number = 1L, ranges = list(c(1L, 1L)))), no_tab_linter())
+  )
 
 })
 
+test_that("expect_lint_free works", {
+  withr::local_options(
+    lintr.rstudio_source_markers = FALSE,
+    lintr.linter_file = "lintr_test_config"
+  )
+  withr::local_envvar(c(NOT_CRAN = "true", R_COVR = "false"))
+
+  expect_lint_free(test_path("dummy_packages", "clean"))
+  expect_lint_free(test_path("dummy_packages", "clean_subdir", "r"))
+  expect_failure(expect_lint_free(test_path("dummy_packages", "package")))
+})
