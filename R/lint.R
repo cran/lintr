@@ -12,17 +12,21 @@
 #'
 #' * `lint()` lints a single file.
 #' * `lint_dir()` lints all files in a directory.
-#' * `line_pakage()` lints all likely locations for R files in a package, i.e.
+#' * `lint_package()` lints all likely locations for R files in a package, i.e.
 #'   `R/`, `tests/`, `inst/`, `vignettes/`, `data-raw/`, and `demo/`.
 #'
-#' Read `vigentte("lintr")` to learn how to configure which linters are run
+#' Read `vignette("lintr")` to learn how to configure which linters are run
 #' by default.
+#' Note that if files contain unparseable encoding problems, only the encoding problem will be linted to avoid
+#' unintelligible error messages from other linters.
 #'
 #' @param filename either the filename for a file to lint, or a character string of inline R code for linting.
 #' The latter (inline data) applies whenever `filename` has a newline character (\\n).
 #' @param linters a named list of linter functions to apply. See [linters] for a full list of default and available
 #' linters.
-#' @param ... additional arguments passed to [exclude()].
+#' @param ... Provide additional arguments to be passed to:
+#' - [exclude()] (in case of `lint()`; e.g. `lints` or `exclusions`)
+#' - [lint()] (in case of `lint_dir()` and `lint_package()`; e.g. `linters` or `cache`)
 #' @param cache given a logical, toggle caching of lint results. If passed a character string, store the cache in this
 #' directory.
 #' @param parse_settings whether to try and parse the settings.
@@ -88,9 +92,11 @@ lint <- function(filename, linters = NULL, ..., cache = FALSE, parse_settings = 
   }
 
   lints <- list()
-  for (expr in source_expressions$expressions) {
-    for (linter in names(linters)) {
-      lints[[length(lints) + 1L]] <- get_lints(expr, linter, linters[[linter]], lint_cache, source_expressions$lines)
+  if (!is_tainted(source_expressions$lines)) {
+    for (expr in source_expressions$expressions) {
+      for (linter in names(linters)) {
+        lints[[length(lints) + 1L]] <- get_lints(expr, linter, linters[[linter]], lint_cache, source_expressions$lines)
+      }
     }
   }
 
@@ -110,7 +116,6 @@ lint <- function(filename, linters = NULL, ..., cache = FALSE, parse_settings = 
 
 #' @param path For the base directory of the project (for `lint_dir()`) or
 #'   package (for `lint_package()`).
-#' @param ... additional arguments passed to [lint()], e.g. `linters` or `cache`.
 #' @param relative_path if `TRUE`, file paths are printed using their path relative to the base directory.
 #'   If `FALSE`, use the full absolute path.
 #' @param exclusions exclusions for [exclude()], relative to the package path.
@@ -121,7 +126,6 @@ lint <- function(filename, linters = NULL, ..., cache = FALSE, parse_settings = 
 #'   lint_dir()
 #'   lint_dir(
 #'     linters = list(semicolon_linter())
-#'     cache = TRUE,
 #'     exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R", "renv")
 #'   )
 #' }
@@ -215,7 +219,6 @@ drop_excluded <- function(files, exclusions) {
 #'
 #'   lint_package(
 #'     linters = linters_with_defaults(semicolon_linter = semicolon_linter())
-#'     cache = TRUE,
 #'     exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R")
 #'   )
 #' }
@@ -311,7 +314,7 @@ define_linters <- function(linters = NULL) {
   if (is.null(linters)) {
     linters <- settings$linters
     names(linters) <- auto_names(linters)
-  } else if (inherits(linters, "linter")) {
+  } else if (is_linter(linters)) {
     linters <- list(linters)
     names(linters) <- attr(linters[[1L]], "name", exact = TRUE)
   } else if (!is.list(linters)) {
@@ -325,7 +328,7 @@ define_linters <- function(linters = NULL) {
 }
 
 validate_linter_object <- function(linter, name) {
-  if (!inherits(linter, "linter") && is.function(linter)) {
+  if (!is_linter(linter) && is.function(linter)) {
     if (is_linter_factory(linter)) {
       old <- "Passing linters as variables"
       new <- "a call to the linters (see ?linters)"
@@ -392,9 +395,15 @@ find_rproj_at <- function(path) {
 find_rproj <- function(path) {
   path <- normalizePath(path, mustWork = FALSE)
 
+  # Limit to recursion depth of 3
+  depth <- 1
   while (length(res <- find_rproj_at(path)) == 0L) {
     path <- dirname(path)
     if (is_root(path)) {
+      return(NULL)
+    }
+    depth <- depth + 1
+    if (depth > 3) {
       return(NULL)
     }
   }
@@ -557,6 +566,161 @@ checkstyle_output <- function(lints, filename = "lintr_results.xml") {
   xml2::write_xml(d, filename)
 }
 
+#' SARIF Report for lint results
+#'
+#' Generate a report of the linting results using the [SARIF](https://sarifweb.azurewebsites.net/) format.
+#'
+#' @param lints the linting results.
+#' @param filename the name of the output report
+#' @export
+sarif_output <- function(lints, filename = "lintr_results.sarif") {
+
+  # package path will be NULL unless it is a relative path
+  package_path <- attr(lints, "path")
+
+  # setup template
+  sarif <- jsonlite::fromJSON(
+    '{
+      "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
+      "version": "2.1.0",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "lintr",
+              "informationUri": "https://lintr.r-lib.org/",
+              "version": "2.0.1",
+              "rules": [
+                {
+                  "id": "trailing_whitespace_linter",
+                  "fullDescription": {
+                    "text": "Trailing whitespace is superfluous."
+                  },
+                  "defaultConfiguration": {
+                    "level": "note"
+                  }
+                }
+              ]
+            }
+          },
+          "results": [
+            {
+              "ruleId": "trailing_whitespace_linter",
+              "ruleIndex": 0,
+              "message": {
+                "text": "Trailing blank lines are superfluous."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "TestFileFolder/hello.r",
+                      "uriBaseId": "ROOTPATH"
+                    },
+                    "region": {
+                      "startLine": 2,
+                      "startColumn": 22,
+                      "snippet": {
+                        "text": "print(Hello World!) "
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "columnKind": "utf16CodeUnits",
+          "originalUriBaseIds": {
+            "ROOTPATH": {
+              "uri": "file:///C:/repos/repototest/"
+            }
+          }
+        }
+      ]
+    }',
+    simplifyVector = TRUE,
+    simplifyDataFrame = FALSE,
+    simplifyMatrix = FALSE
+  )
+
+  # assign values
+  sarif$runs[[1L]]$results <- NULL
+  sarif$runs[[1L]]$tool$driver$rules <- NULL
+  sarif$runs[[1L]]$tool$driver$version <-
+    as.character(utils::packageVersion("lintr"))
+  sarif$runs[[1L]]$originalUriBaseIds$ROOTPATH$uri <- ""
+  rule_index_exists <- FALSE
+  root_path_uri <- gsub("\\\\", "/", package_path)
+
+  if (startsWith(root_path_uri, "/")) {
+    root_path_uri <- paste("file://", root_path_uri, sep = "")
+  } else {
+    root_path_uri <- paste("file:///", root_path_uri, sep = "")
+  }
+
+  if (!endsWith(root_path_uri, "/")) {
+    root_path_uri <- paste(root_path_uri, "/", sep = "")
+  }
+
+  sarif$runs[[1L]]$originalUriBaseIds$ROOTPATH$uri <- root_path_uri
+
+  # loop and assign result values
+  for (lint in lints) {
+    one_result <- list()
+
+    if (is.null(sarif$runs[[1L]]$tool$driver$rules)) {
+      rule_index_exists <- 0L
+    } else {
+      rule_index_exists <-
+        which(sapply(sarif$runs[[1L]]$tool$driver$rules,
+                     function(x) x$id == lint$linter))
+      if (length(rule_index_exists) == 0L ||
+          is.na(rule_index_exists[1L])) {
+        rule_index_exists <- 0L
+      }
+    }
+
+    if (rule_index_exists == 0L) {
+      new_rule <- list(
+        id = lint$linter,
+        fullDescription = list(text = lint$message),
+        defaultConfiguration = list(level = switch(lint$type,
+                                                   style = "note",
+                                                   lint$type))
+      )
+      sarif$runs[[1L]]$tool$driver$rules <-
+        append(sarif$runs[[1L]]$tool$driver$rules, list(new_rule))
+      rule_index <- length(sarif$runs[[1L]]$tool$driver$rules) - 1L
+    } else {
+      rule_index <- rule_index_exists - 1L
+    }
+
+    one_result <- append(one_result, c(ruleId = lint$linter))
+    one_result <- append(one_result, c(ruleIndex = rule_index))
+    one_result <-
+      append(one_result, list(message = list(text = lint$message)))
+    one_location <- list(physicalLocation = list(
+      artifactLocation = list(
+        uri = gsub("\\\\", "/", lint$filename),
+        uriBaseId = "ROOTPATH"
+      ),
+      region = list(
+        startLine = lint$line_number,
+        startColumn = lint$column_number,
+        snippet = list(text = lint$line)
+      )
+    ))
+    one_result <-
+      append(one_result, c(locations = list(list(one_location))))
+
+    sarif$runs[[1L]]$results <-
+      append(sarif$runs[[1L]]$results, list(one_result))
+  }
+
+  write(jsonlite::toJSON(sarif, pretty = TRUE, auto_unbox = TRUE),
+        filename)
+}
+
 highlight_string <- function(message, column_number = NULL, ranges = NULL) {
 
   maximum <- max(column_number, unlist(ranges))
@@ -597,6 +761,7 @@ maybe_report_progress <- function(done = FALSE) {
 
 maybe_append_error_lint <- function(lints, error, lint_cache, filename) {
   if (inherits(error, "lint")) {
+    error$linter <- "error"
     lints[[length(lints) + 1L]] <- error
 
     if (!is.null(lint_cache)) {

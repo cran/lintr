@@ -1,30 +1,37 @@
 Package: lintr
 Title: A 'Linter' for R Code
-Version: 3.0.0
+Version: 3.0.1
 Authors@R: c(
-    person("Jim", "Hester", email = "james.f.hester@gmail.com", role = c("aut", "cre")),
-    person("Florent", "Angly", role = "aut", comment = "fangly"),
+    person("Jim", "Hester", , "james.f.hester@gmail.com", role = c("aut", "cre")),
+    person("Florent", "Angly", role = "aut",
+           comment = "fangly"),
     person("Russ", "Hyde", role = "aut"),
     person("Michael", "Chirico", role = "aut"),
     person("Kun", "Ren", role = "aut"),
-    person("Alexander", "Rosenstock", role = "aut", comment = "AshesITR")
-    )
+    person("Alexander", "Rosenstock", role = "aut",
+           comment = "AshesITR"),
+    person("Indrajeet", "Patil", role = "aut", email = "patilindrajeet.science@gmail.com",
+           comment = c(ORCID = "0000-0003-1995-6531", Twitter = "@patilindrajeets"))
+  )
+Description: Checks adherence to a given style, syntax errors and possible
+    semantic issues.  Supports on the fly checking of R code edited with
+    'RStudio IDE', 'Emacs', 'Vim', 'Sublime Text', 'Atom' and 'Visual
+    Studio Code'.
+License: MIT + file LICENSE
 URL: https://github.com/r-lib/lintr, https://lintr.r-lib.org
 BugReports: https://github.com/r-lib/lintr/issues
-Description: Checks adherence to a given style, syntax errors and possible semantic issues.
-    Supports on the fly checking of R code edited with 'RStudio IDE', 'Emacs', 'Vim', 'Sublime Text',
-    'Atom' and 'Visual Studio Code'.
 Depends: R (>= 3.2)
-Imports: rex, crayon, codetools, cyclocomp, digest, glue, jsonlite,
-        knitr, stats, utils, xml2 (>= 1.0.0), xmlparsedata (>= 1.0.3),
-        backports
+Imports: backports, codetools, crayon, cyclocomp, digest, glue,
+        jsonlite, knitr, rex, stats, utils, xml2 (>= 1.0.0),
+        xmlparsedata (>= 1.0.5)
 Suggests: covr, httr (>= 1.2.1), mockery, patrick, pkgdown, rmarkdown,
-        rstudioapi (>= 0.2), testthat (>= 3.0.0), tibble, withr
-License: MIT + file LICENSE
-Encoding: UTF-8
+        rstudioapi (>= 0.2), testthat (>= 3.0.0), tibble, withr (>=
+        2.5.0)
 VignetteBuilder: knitr
-RoxygenNote: 7.2.0
+Config/Needs/website: tidyverse/tidytemplate
 Config/testthat/edition: 3
+Encoding: UTF-8
+RoxygenNote: 7.2.1
 Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'actions.R'
         'addins.R' 'any_duplicated_linter.R' 'any_is_na_linter.R'
         'assignment_linter.R' 'backport_linter.R' 'brace_linter.R'
@@ -40,6 +47,7 @@ Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'actions.R'
         'expect_null_linter.R' 'expect_s3_class_linter.R'
         'expect_true_false_linter.R' 'expect_type_linter.R' 'extract.R'
         'extraction_operator_linter.R' 'fixed_regex_linter.R'
+        'function_argument_linter.R'
         'function_left_parentheses_linter.R' 'get_source_expressions.R'
         'ids_with_token.R' 'ifelse_censor_linter.R'
         'implicit_integer_linter.R' 'infix_spaces_linter.R'
@@ -67,15 +75,16 @@ Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'actions.R'
         'unused_import_linter.R' 'use_lintr.R' 'vector_logic_linter.R'
         'with.R' 'with_id.R' 'xml_nodes_to_lints.R' 'xp_utils.R'
         'yoda_test_linter.R' 'zzz.R'
-Config/Needs/website: tidyverse/tidytemplate
 NeedsCompilation: no
-Packaged: 2022-06-13 15:49:09 UTC; jimhester
+Packaged: 2022-09-09 18:21:48 UTC; jimhester
 Author: Jim Hester [aut, cre],
   Florent Angly [aut] (fangly),
   Russ Hyde [aut],
   Michael Chirico [aut],
   Kun Ren [aut],
-  Alexander Rosenstock [aut] (AshesITR)
+  Alexander Rosenstock [aut] (AshesITR),
+  Indrajeet Patil [aut] (<https://orcid.org/0000-0003-1995-6531>,
+    @patilindrajeets)
 Maintainer: Jim Hester <james.f.hester@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-06-13 22:30:02 UTC
+Date/Publication: 2022-09-13 11:10:02 UTC

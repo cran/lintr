@@ -120,13 +120,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
     try { var rules = sheets[i].cssRules; } catch (e) { continue; }
-    for (var j = 0; j < rules.length; j++) {
+    var j = 0;
+    while (j < rules.length) {
       var rule = rules[j];
       // check if there is a div.sourceCode rule
-      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
       var style = rule.style.cssText;
       // check if color or background-color is set
-      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
       // replace div.sourceCode by a pre.sourceCode rule
       sheets[i].deleteRule(j);
       sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
@@ -342,16 +349,16 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p>If your package is on GitHub, the easiest way to do this is with GitHub Actions. The workflow configuration files use YAML syntax. The <code>usethis</code> package has some great functionality that can help you with workflow files. The most straightforward way to add a <code>lintr</code> workflow to your package is to use the <a href="https://github.com/r-lib/actions/tree/master/examples">r-lib/actions</a>’s <code>lint</code> example. To do this with <code>usethis</code>, you need to call</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>usethis<span class="sc">::</span><span class="fu">use_github_action</span>(<span class="st">&quot;lint&quot;</span>)</span></code></pre></div>
 <p>This will create a workflow file called <code>lint.yaml</code> and place it in the correct location, namely in the <code>.github/workflows</code> directory of your repository. This file configures all the steps required to run <code>lintr::lint_package()</code> on your package.</p>
-<p><a href="https://github.com/lintr-bot">lintr-bot</a> will then add comments to the commit or pull request with the lints found and they will also be printed as <a href="https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/about-status-checks#types-of-status-checks-on-github">annotations</a> along side the status check on GitHub. If you want to disable the commenting you can set the environment variable <code>LINTR_COMMENT_BOT=false</code>.</p>
+<p><a href="https://github.com/lintr-bot">lintr-bot</a> will then add comments to the commit or pull request with the lints found and they will also be printed as <a href="https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/about-status-checks#types-of-status-checks-on-github">annotations</a> along side the status check on GitHub. If you want to disable the commenting you can set the environment variable <code>LINTR_COMMENT_BOT=false</code>. Additionally, if you want the builds to produce an error instead of just a warning, you can set the environment variable <code>LINTR_ERROR_ON_LINT=true</code>. Note that this will kill the R process in case of a lint.</p>
 <p>If your project is in a subdirectory and you would like to use GitHub Actions annotations, you can set <code>options(lintr.github_annotation_project_dir = &quot;path/to/project&quot;)</code> which will make sure that the annotations point to the correct paths.</p>
 </div>
 <div id="travis-ci" class="section level3">
 <h3>Travis CI</h3>
-<p>If you want to run <code>lintr</code> on <a href="https://travis-ci.org">Travis-CI</a>, you will need to have Travis install the package first. This can be done by adding the following line to your <code>.travis.yml</code></p>
+<p>If you want to run <code>lintr</code> on <a href="https://www.travis-ci.com/">Travis-CI</a>, you will need to have Travis install the package first. This can be done by adding the following line to your <code>.travis.yml</code></p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">r_github_packages</span><span class="kw">:</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> r-lib/lintr</span></span></code></pre></div>
 <p>We recommend running <code>lintr::lint_package()</code> as an <a href="#non-failing-lints">after_success step in your build process</a>]</p>
-<p>Just like with GitHub Actions, <a href="https://github.com/lintr-bot">lintr-bot</a> will then add comments to the commit or pull request with the lints found and they will also be printed on Travis-CI. If you want to disable the commenting you can set the environment variable <code>LINTR_COMMENT_BOT=false</code>.</p>
+<p>Just like with GitHub Actions, <a href="https://github.com/lintr-bot">lintr-bot</a> will then add comments to the commit or pull request with the lints found and they will also be printed on Travis-CI. The environment variables <code>LINTR_COMMENT_BOT</code> and <code>LINTR_ERROR_ON_LINT</code> mentioned for GitHub actions also work with Travis CI builds.</p>
 <div id="non-failing-lints" class="section level5">
 <h5>Non-failing Lints</h5>
 <div class="sourceCode" id="cb3"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">after_success</span><span class="kw">:</span></span>
@@ -371,7 +378,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 </div>
 <div id="super-linter" class="section level3">
 <h3>Super-Linter</h3>
-<p><code>lintr</code> powers R lints for <a href="https://github.com/github/super-linter">Super-Linter</a> and <a href="https://megalinter.github.io/latest/">MegaLinter</a>, which provide a unified linting experience across many languages. Specifically, they execute <code>lintr::lint()</code> on the R and R Markdown files included in a given project.</p>
+<p><code>lintr</code> powers R lints for <a href="https://github.com/github/super-linter">Super-Linter</a> and <a href="https://oxsecurity.github.io/megalinter/latest/">MegaLinter</a>, which provide a unified linting experience across many languages. Specifically, they execute <code>lintr::lint()</code> on the R and R Markdown files included in a given project.</p>
 </div>
 </div>
 
