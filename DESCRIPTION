@@ -1,6 +1,6 @@
 Package: lintr
 Title: A 'Linter' for R Code
-Version: 3.0.1
+Version: 3.0.2
 Authors@R: c(
     person("Jim", "Hester", , "james.f.hester@gmail.com", role = c("aut", "cre")),
     person("Florent", "Angly", role = "aut",
@@ -76,7 +76,7 @@ Collate: 'T_and_F_symbol_linter.R' 'utils.R' 'aaa.R' 'actions.R'
         'with.R' 'with_id.R' 'xml_nodes_to_lints.R' 'xp_utils.R'
         'yoda_test_linter.R' 'zzz.R'
 NeedsCompilation: no
-Packaged: 2022-09-09 18:21:48 UTC; jimhester
+Packaged: 2022-10-11 19:02:22 UTC; jimhester
 Author: Jim Hester [aut, cre],
   Florent Angly [aut] (fangly),
   Russ Hyde [aut],
@@ -87,4 +87,4 @@ Author: Jim Hester [aut, cre],
     @patilindrajeets)
 Maintainer: Jim Hester <james.f.hester@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-09-13 11:10:02 UTC
+Date/Publication: 2022-10-19 09:52:37 UTC

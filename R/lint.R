@@ -370,47 +370,45 @@ reorder_lints <- function(lints) {
   )]
 }
 
+
 has_description <- function(path) {
   desc_info <- file.info(file.path(path, "DESCRIPTION"))
   !is.na(desc_info$size) && desc_info$size > 0.0 && !desc_info$isdir
 }
 
 find_package <- function(path) {
-  path <- normalizePath(path, mustWork = FALSE)
-
-  while (!has_description(path)) {
+  depth <- 2
+  while(!has_description(path)) {
     path <- dirname(path)
-    if (is_root(path)) {
+    if (is_root(path) || depth <= 0) {
       return(NULL)
     }
+    depth <- depth - 1
   }
-
   path
 }
 
-find_rproj_at <- function(path) {
-  head(list.files(path = path, pattern = "\\.Rproj$", full.names = TRUE), 1L)
-}
-
-find_rproj <- function(path) {
+find_rproj_or_package <- function(path) {
   path <- normalizePath(path, mustWork = FALSE)
 
-  # Limit to recursion depth of 3
-  depth <- 1
-  while (length(res <- find_rproj_at(path)) == 0L) {
+  depth <- 2
+  while(!(has_description(path) || has_rproj(path))) {
     path <- dirname(path)
-    if (is_root(path)) {
+    if (is_root(path) || depth <= 0) {
       return(NULL)
     }
-    depth <- depth + 1
-    if (depth > 3) {
-      return(NULL)
-    }
+    depth <- depth - 1
   }
-
-  res
+  path
 }
 
+has_rproj <- function(path) {
+  length(head(Sys.glob(file.path(path, "*.Rproj")), n = 1L)) == 1
+}
+
+find_rproj_at <- function(path) {
+  head(Sys.glob(file.path(path, "*.Rproj")), n = 1L)
+}
 is_root <- function(path) {
   identical(path, dirname(path))
 }
