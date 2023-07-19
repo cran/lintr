@@ -9,9 +9,25 @@ paren_body_linter()
 \description{
 Check that there is a space between right parenthesis and a body expression.
 }
+\examples{
+# will produce lints
+lint(
+  text = "function(x)x + 1",
+  linters = paren_body_linter()
+)
+
+# okay
+lint(
+  text = "function(x) x + 1",
+  linters = paren_body_linter()
+)
+
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#parentheses}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#parentheses}
+}
 }
 \section{Tags}{
 \link[=default_linters]{default}, \link[=readability_linters]{readability}, \link[=style_linters]{style}

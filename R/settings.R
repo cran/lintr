@@ -8,7 +8,8 @@
 #'  4. `linter_file` in the user home directory
 #'  5. [default_settings()]
 #'
-#' The default linter_file name is `.lintr` but it can be changed with option `lintr.linter_file`.
+#' The default linter_file name is `.lintr` but it can be changed with option `lintr.linter_file`
+#' or the environment variable `R_LINTR_LINTER_FILE`
 #' This file is a dcf file, see [base::read.dcf()] for details.
 #' @param filename source file to be linted
 read_settings <- function(filename) {
@@ -22,13 +23,13 @@ read_settings <- function(filename) {
   }
 
   if (!is.null(config_file)) {
-    f <- function(e) {
-        stop("Malformed config file, ensure it ends in a newline\n  ", conditionMessage(e), call. = FALSE)
+    malformed <- function(e) {
+      stop("Malformed config file, ensure it ends in a newline\n  ", conditionMessage(e), call. = FALSE)
     }
-    tryCatch(
-      config <- read.dcf(config_file, all = TRUE),
-      warning = f,
-      error = f
+    config <- tryCatch(
+      read.dcf(config_file, all = TRUE),
+      warning = malformed,
+      error = malformed
     )
   } else {
     config <- NULL
@@ -54,7 +55,13 @@ get_setting <- function(setting, config, defaults) {
   if (!is.null(option)) {
     option
   } else if (!is.null(config[[setting]])) {
-    eval(parse(text = config[[setting]]))
+    malformed <- function(e) {
+      stop("Malformed config setting '", setting, "'\n  ", conditionMessage(e), call. = FALSE)
+    }
+    tryCatch(
+      eval(parse(text = config[[setting]])),
+      error = malformed
+    )
   } else {
     defaults[[setting]]
   }
@@ -64,51 +71,12 @@ clear_settings <- function() {
   rm(list = ls(settings), envir = settings)
 }
 
-find_config <- function(filename) {
-
-  if (is.null(filename)) {
-    return(NULL)
-  }
-  linter_file <- getOption("lintr.linter_file")
-
-  ## if users changed lintr.linter_file, return immediately.
-  if (is_absolute_path(linter_file) && file.exists(linter_file)) return(linter_file)
-
-  path <- if (is_directory(filename)) {
-    filename
-  } else {
-    dirname(filename)
-  }
-
-  ## check for a file in the current directory
-  linter_config <- file.path(path, linter_file)
-  if (isTRUE(file.exists(linter_config))) {
-    return(linter_config)
-  }
-
-  ## next check for a file higher directories
-  linter_config <- find_config2(path)
-  if (isTRUE(file.exists(linter_config))) {
-    return(linter_config)
-  }
-
-  ## next check for a file in the user directory
-  # cf: rstudio@bc9b6a5 SessionRSConnect.R#L32
-  home_dir <- Sys.getenv("HOME", unset = "~")
-  linter_config <- file.path(home_dir, linter_file)
-  if (isTRUE(file.exists(linter_config))) {
-    return(linter_config)
-  }
-
-  NULL
-}
-
 find_default_encoding <- function(filename) {
   if (is.null(filename)) {
     return(NULL)
   }
 
-  root_path <- find_rproj_or_package(filename)
+  root_path <- find_package(filename, allow_rproj = TRUE)
   rproj_enc <- get_encoding_from_dcf(find_rproj_at(root_path))
   if (!is.null(rproj_enc)) {
     return(rproj_enc)
@@ -117,7 +85,9 @@ find_default_encoding <- function(filename) {
 }
 
 get_encoding_from_dcf <- function(file) {
-  if (is.null(file)) return(NULL)
+  if (is.null(file)) {
+    return(NULL)
+  }
 
   encodings <- tryCatch(
     unname(drop(read.dcf(file, "Encoding"))),
@@ -126,7 +96,7 @@ get_encoding_from_dcf <- function(file) {
   )
 
   if (!is.null(encodings)) {
-    # Produces a warning in R <= 3.5 if encodings is NULL
+    # Produces a warning in R <= 3.5 if encoding is NULL
     encodings <- encodings[!is.na(encodings)]
   }
   if (length(encodings) > 0L) {
@@ -134,10 +104,4 @@ get_encoding_from_dcf <- function(file) {
   }
 
   NULL
-}
-
-is_directory <- function(filename) {
-  is_dir <- file.info(filename)$isdir
-
-  !is.na(is_dir) && is_dir
 }

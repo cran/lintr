@@ -23,10 +23,45 @@ does.
 \item Functions spanning multiple lines use curly braces.
 }
 }
+\examples{
+# will produce lints
+lint(
+  text = "f <- function() { 1 }",
+  linters = brace_linter()
+)
+
+writeLines("if (TRUE) {\n return(1) }")
+lint(
+  text = "if (TRUE) {\n return(1) }",
+  linters = brace_linter()
+)
+
+# okay
+writeLines("f <- function() {\n  1\n}")
+lint(
+  text = "f <- function() {\n  1\n}",
+  linters = brace_linter()
+)
+
+writeLines("if (TRUE) { \n return(1) \n}")
+lint(
+  text = "if (TRUE) { \n return(1) \n}",
+  linters = brace_linter()
+)
+
+# customizing using arguments
+writeLines("if (TRUE) { return(1) }")
+lint(
+  text = "if (TRUE) { return(1) }",
+  linters = brace_linter(allow_single_line = TRUE)
+)
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#indenting} \cr
-\url{https://style.tidyverse.org/syntax.html#if-statements}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#indenting}
+\item \url{https://style.tidyverse.org/syntax.html#if-statements}
+}
 }
 \section{Tags}{
 \link[=configurable_linters]{configurable}, \link[=default_linters]{default}, \link[=readability_linters]{readability}, \link[=style_linters]{style}

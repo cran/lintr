@@ -10,7 +10,7 @@ extract_r_source <- function(filename, lines, error = identity) {
 
   chunks <- tryCatch(get_chunk_positions(pattern = pattern, lines = lines), error = error)
   if (inherits(chunks, "error") || inherits(chunks, "lint")) {
-    assign("e", chunks,  envir = parent.frame())
+    assign("e", chunks, envir = parent.frame())
     # error, so return empty code
     return(output)
   }
@@ -20,13 +20,19 @@ extract_r_source <- function(filename, lines, error = identity) {
     return(output)
   }
 
+  output_env <- environment() # nolint: object_usage_linter. False positive-ish -- used below.
   Map(
-    function(start, end) {
-      output[seq(start + 1L, end - 1L)] <<- lines[seq(start + 1L, end - 1L)]
+    function(start, end, indent) {
+      line_seq <- seq(start + 1L, end - 1L)
+      chunk_code <- lines[line_seq]
+      output_env$output[line_seq] <- if (indent > 0L) substr(chunk_code, indent + 1L, nchar(chunk_code)) else chunk_code
     },
     chunks[["starts"]],
-    chunks[["ends"]]
+    chunks[["ends"]],
+    chunks[["indents"]]
   )
+  # drop <<chunk>> references, too
+  is.na(output) <- grep(pattern$ref.chunk, output)
   replace_prefix(output, pattern$chunk.code)
 }
 
@@ -34,8 +40,22 @@ get_knitr_pattern <- function(filename, lines) {
   # Early return if the source code is parseable as plain R code.
   # Otherwise, R code containing a line which matches any knitr pattern will be treated as a knitr file.
   # See #1406 for details.
-  if (parsable(lines)) return(NULL)
-  pattern <- ("knitr" %:::% "detect_pattern")(lines, tolower(("knitr" %:::% "file_ext")(filename)))
+  if (parsable(lines)) {
+    return(NULL)
+  }
+  # suppressWarnings for #1920. TODO(michaelchirico): this is a bit sloppy -- we ignore
+  #   warnings here because encoding issues are caught later and that code path handles them
+  #   correctly by converting to a lint. It would require some refactoring to get that
+  #   right here as well, but it would avoid the duplication.
+  pattern <- withCallingHandlers(
+    ("knitr" %:::% "detect_pattern")(lines, tolower(("knitr" %:::% "file_ext")(filename))),
+    warning = function(cond) {
+      if (!grepl("invalid UTF-8", conditionMessage(cond), fixed = TRUE)) {
+        warning(cond)
+      }
+      invokeRestart("muffleWarning")
+    }
+  )
   if (!is.null(pattern)) {
     knitr::all_patterns[[pattern]]
   } else {
@@ -55,7 +75,18 @@ get_chunk_positions <- function(pattern, lines) {
   # only keep those blocks that contain at least one line of code
   keep <- which(ends - starts > 1L)
 
-  list(starts = starts[keep], ends = ends[keep])
+  starts <- starts[keep]
+  ends <- ends[keep]
+
+  # Check indent on all lines in the chunk to allow for staggered indentation within a chunk;
+  #   set the initial column to the leftmost one within each chunk (including the start+end gates). See tests.
+  # use 'ws_re' to make clear that we're matching knitr's definition of initial whitespace.
+  ws_re <- sub("```.*", "", pattern$chunk.begin)
+  indents <- mapply(
+    function(start, end) min(vapply(gregexpr(ws_re, lines[start:end], perl = TRUE), attr, integer(1L), "match.length")),
+    starts, ends
+  )
+  list(starts = starts, ends = ends, indents = indents)
 }
 
 filter_chunk_start_positions <- function(starts, lines) {
@@ -67,7 +98,7 @@ filter_chunk_start_positions <- function(starts, lines) {
 filter_chunk_end_positions <- function(starts, ends) {
   # In a valid file, possibly with plain-code-blocks,
   # - there should be at least as many ends as starts
-  # In Rmarkdown, unevaluated blocks may open & close with the same ``` pattern
+  # In Rmarkdown and Quarto, unevaluated blocks may open & close with the same ``` pattern
   # that defines the end-pattern for an evaluated block
 
   # This returns the first end-position that succeeds each start-position
@@ -84,7 +115,7 @@ filter_chunk_end_positions <- function(starts, ends) {
   code_ends <- positions[pmin(1L + code_start_indexes, length(positions))]
 
   bad_end_indexes <- grep("starts", names(code_ends), fixed = TRUE)
-  if (length(bad_end_indexes)) {
+  if (length(bad_end_indexes) > 0L) {
     bad_start_positions <- positions[code_start_indexes[bad_end_indexes]]
     # This error message is formatted like a parse error
     stop(sprintf(
@@ -97,6 +128,12 @@ filter_chunk_end_positions <- function(starts, ends) {
 }
 
 defines_knitr_engine <- function(start_lines) {
+  # Other packages defining custom engines should have them loaded and thus visible
+  #   via knitr_engines$get() below. It seems the simplest way to accomplish this is
+  #   for those packages to set some code in their .onLoad() hook, but that's not
+  #   always done (nor quite recommended as a "best practice" by knitr).
+  #   See the discussion on #1552.
+  # TODO(#1617): explore running loadNamespace() automatically.
   engines <- names(knitr::knit_engines$get())
 
   # {some_engine}, {some_engine label, ...} or {some_engine, ...}
@@ -120,15 +157,8 @@ replace_prefix <- function(lines, prefix_pattern) {
   m <- gregexpr(prefix_pattern, lines)
   non_na <- !is.na(m)
 
-  blanks <- function(n) {
-    vapply(Map(rep.int, rep.int(" ", length(n)), n, USE.NAMES = FALSE),
-      paste, "",
-      collapse = ""
-    )
-  }
-
-  regmatches(lines[non_na], m[non_na]) <-
-    Map(blanks, lapply(regmatches(lines[non_na], m[non_na]), nchar))
+  prefix_lengths <- lapply(regmatches(lines[non_na], m[non_na]), nchar)
+  regmatches(lines[non_na], m[non_na]) <- lapply(prefix_lengths, strrep, x = " ")
 
   lines
 }

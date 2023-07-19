@@ -8,7 +8,7 @@ vector_logic_linter()
 }
 \description{
 Usage of \code{&} in conditional statements is error-prone and inefficient.
-\code{condition} in \code{if (condition) expr} must always be length-1, in which
+\code{condition} in \code{if (condition) expr} must always be of length 1, in which
 case \code{&&} is to be preferred. Ditto for \code{|} vs. \code{||}.
 }
 \details{
@@ -27,9 +27,35 @@ and \code{b} will not be assigned. Such usage is not allowed by the Tidyverse
 style guide, and the code can easily be refactored by pulling the
 assignment outside the condition, so using \code{||} is still preferable.
 }
+\examples{
+# will produce lints
+lint(
+  text = "if (TRUE & FALSE) 1",
+  linters = vector_logic_linter()
+)
+
+lint(
+  text = "if (TRUE && (TRUE | FALSE)) 4",
+  linters = vector_logic_linter()
+)
+
+# okay
+lint(
+  text = "if (TRUE && FALSE) 1",
+  linters = vector_logic_linter()
+)
+
+lint(
+  text = "if (TRUE && (TRUE || FALSE)) 4",
+  linters = vector_logic_linter()
+)
+
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#if-statements}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#if-statements}
+}
 }
 \section{Tags}{
 \link[=best_practices_linters]{best_practices}, \link[=default_linters]{default}, \link[=efficiency_linters]{efficiency}

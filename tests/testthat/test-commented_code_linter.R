@@ -1,21 +1,39 @@
-test_that("returns the correct linting", {
-  msg <- rex("Commented code should be removed.")
+test_that("commented_code_linter skips allowed usages", {
   linter <- commented_code_linter()
-  expect_s3_class(linter, "linter")
 
   expect_lint("blah", NULL, linter)
+  expect_lint("#' blah <- 1", NULL, linter)
+  expect_lint(c("a <- 1", "# comment without code"), NULL, linter)
+  expect_lint(c("a <- 1", "# comment without code"), NULL, linter)
+  expect_lint(c("a <- 1", "## whatever"), NULL, linter)
 
-  expect_lint("# blah <- 1", msg, linter)
+  expect_lint("TRUE", NULL, linter)
+  expect_lint("#' @examples", NULL, linter)
+  expect_lint("#' foo(1) # list(1)", NULL, linter) # comment in roxygen block ignored
+  expect_lint("1+1 # gives 2", NULL, linter)
+  expect_lint("# Non-existent:", NULL, linter)
+  expect_lint("# 1-a", NULL, linter) # "-" removed from code operators
+  expect_lint('1+1  # for example cat("123")', NULL, linter)
+
+  # regression test for #451
+  expect_lint("c('#a#' = 1)", NULL, linter)
+})
+
+test_that("commented_code_linter blocks disallowed usages", {
+  lint_msg <- rex::rex("Commented code should be removed.")
+  linter <- commented_code_linter()
+
+  expect_lint("# blah <- 1", lint_msg, linter)
 
   expect_lint(
     "bleurgh <- fun_call(1) # other_call()",
-    list(message = msg, column_number = 26L),
+    list(message = lint_msg, column_number = 26L),
     linter
   )
 
   expect_lint(
     " #blah <- 1",
-    list(message = msg, column_number = 3L),
+    list(message = lint_msg, column_number = 3L),
     linter
   )
 
@@ -26,27 +44,7 @@ test_that("returns the correct linting", {
     line_without_comment <- 42L
      #blah <- 1
     "),
-    list(message = msg, line_number = 3L, column_number = 3L),
-    linter
-  )
-
-  expect_lint("#' blah <- 1", NULL, linter)
-
-  expect_lint(
-    c("a <- 1", "# comment without code"),
-    NULL,
-    linter
-  )
-
-  expect_lint(
-    c("a <- 1", "# comment without code"),
-    NULL,
-    linter
-  )
-
-  expect_lint(
-    c("a <- 1", "## whatever"),
-    NULL,
+    list(message = lint_msg, line_number = 3L, column_number = 3L),
     linter
   )
 
@@ -59,7 +57,7 @@ test_that("returns the correct linting", {
         mu = 175
       )
     "),
-    list(message = msg, line_number  = 3L),
+    list(message = lint_msg, line_number = 3L),
     linter
   )
 
@@ -72,30 +70,37 @@ test_that("returns the correct linting", {
         , mu = 175
       )
     "),
-    list(message = msg, line_number  = 3L),
+    list(message = lint_msg, line_number = 3L),
     linter
   )
 
-  test_ops <- append(ops[ops != "%[^%]*%"], values = c("%>%", "%anything%"))
+  expect_lint("1+1 # cat('123')", lint_msg, linter)
+  expect_lint("#expect_ftype(1e-12 , t)", lint_msg, linter)
+})
+
+test_that("commented_code_linter can detect operators in comments and lint correctly", {
+  linter <- commented_code_linter()
+  lint_msg <- rex::rex("Commented code should be removed.")
+
+  test_ops <- c(
+    "+", "=", "==", "!=", "<=", ">=", "<-", "<<-", "<", ">", "->",
+    "->>", "%%", "/", "^", "*", "**", "|", "||", "&", "&&", "%>%",
+    "%anything%"
+  )
+
   for (op in test_ops) {
     expect_lint(paste("i", op, "1", collapse = ""), NULL, linter)
     expect_lint(paste("# something like i", op, "1", collapse = ""), NULL, linter)
-    expect_lint(paste("# i", op, "1", collapse = ""), msg, linter)
+    expect_lint(paste("# i", op, "1", collapse = ""), lint_msg, linter)
   }
+})
 
-  expect_lint("TRUE", NULL, linter)
-  expect_lint("#' @examples", NULL, linter)
-  expect_lint("#' foo(1) # list(1)", NULL, linter) # comment in roxygen block ignored
-  expect_lint("1+1 # gives 2", NULL, linter)
+test_that("commented_code_linter can detect operators in comments and lint correctly", {
+  skip_if_not_r_version("4.1.0")
 
-  expect_lint("# Non-existent:", NULL, linter) # "-" removed from code operators
-  expect_lint("# 1-a", NULL, linter)
-
-  expect_lint("1+1  # for example cat(\"123\")", NULL, linter)
-
-  expect_lint("1+1 # cat('123')", msg, linter)
-  expect_lint("#expect_ftype(1e-12 , t)", msg, linter)
-
-  # regression test for #451
-  expect_lint("c('#a#' = 1)", NULL, linter)
+  expect_lint(
+    "# 1:3 |> sum()",
+    rex::rex("Commented code should be removed."),
+    commented_code_linter()
+  )
 })

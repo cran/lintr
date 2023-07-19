@@ -63,18 +63,18 @@ If \code{FALSE}, use the full absolute path.}
 
 \item{exclusions}{exclusions for \code{\link[=exclude]{exclude()}}, relative to the package path.}
 
-\item{pattern}{pattern for files, by default it will take files with any of the extensions .R, .Rmd, .Rnw, .Rhtml,
-.Rrst, .Rtex, .Rtxt allowing for lowercase r (.r, ...)}
+\item{pattern}{pattern for files, by default it will take files with any of the extensions
+.R, .Rmd, .qmd, .Rnw, .Rhtml, .Rrst, .Rtex, .Rtxt allowing for lowercase r (.r, ...).}
 }
 \value{
-A list of lint objects.
+An object of class \code{c("lints", "list")}, each element of which is a \code{"list"} object.
 }
 \description{
 \itemize{
 \item \code{lint()} lints a single file.
 \item \code{lint_dir()} lints all files in a directory.
 \item \code{lint_package()} lints all likely locations for R files in a package, i.e.
-\verb{R/}, \verb{tests/}, \verb{inst/}, \verb{vignettes/}, \verb{data-raw/}, and \verb{demo/}.
+\verb{R/}, \verb{tests/}, \verb{inst/}, \verb{vignettes/}, \verb{data-raw/}, \verb{demo/}, and \verb{exec/}.
 }
 }
 \details{
@@ -84,24 +84,29 @@ Note that if files contain unparseable encoding problems, only the encoding prob
 unintelligible error messages from other linters.
 }
 \examples{
-\dontrun{
-  lint("some/file-name.R") # linting a file
-  lint("a = 123\n")        # linting inline-code
-  lint(text = "a = 123")   # linting inline-code
-}
-
-\dontrun{
+\dontshow{if (requireNamespace("withr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+f <- withr::local_tempfile(lines = "a=1", fileext = "R")
+lint(f)                # linting a file
+lint("a = 123\n")      # linting inline-code
+lint(text = "a = 123") # linting inline-code
+\dontshow{\}) # examplesIf}
+if (FALSE) {
   lint_dir()
+
   lint_dir(
-    linters = list(semicolon_linter())
-    exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R", "renv")
+    linters = list(semicolon_linter()),
+    exclusions = list(
+      "inst/doc/creating_linters.R" = 1,
+      "inst/example/bad.R",
+      "renv"
+    )
   )
 }
-\dontrun{
+if (FALSE) {
   lint_package()
 
   lint_package(
-    linters = linters_with_defaults(semicolon_linter = semicolon_linter())
+    linters = linters_with_defaults(semicolon_linter = semicolon_linter()),
     exclusions = list("inst/doc/creating_linters.R" = 1, "inst/example/bad.R")
   )
 }

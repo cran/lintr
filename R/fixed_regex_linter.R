@@ -5,10 +5,59 @@
 #'
 #' NB: for `stringr` functions, that means wrapping the pattern in `stringr::fixed()`.
 #'
-#' NB: This linter is likely not able to distinguish every possible case when
+#' NB: this linter is likely not able to distinguish every possible case when
 #'   a fixed regular expression is preferable, rather it seeks to identify
 #'   likely cases. It should _never_ report false positives, however; please
 #'   report false positives as an error.
+#'
+#' @examples
+#' # will produce lints
+#' code_lines <- 'gsub("\\\\.", "", x)'
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' lint(
+#'   text = 'grepl("a[*]b", x)',
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' code_lines <- 'stringr::str_subset(x, "\\\\$")'
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' lint(
+#'   text = 'grepl("Munich", address)',
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' # okay
+#' code_lines <- 'gsub("\\\\.", "", x, fixed = TRUE)'
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' lint(
+#'   text = 'grepl("a*b", x, fixed = TRUE)',
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' lint(
+#'   text = 'stringr::str_subset(x, stringr::fixed("$"))',
+#'   linters = fixed_regex_linter()
+#' )
+#'
+#' lint(
+#'   text = 'grepl("Munich", address, fixed = TRUE)',
+#'   linters = fixed_regex_linter()
+#' )
 #'
 #' @evalRd rd_tags("fixed_regex_linter")
 #' @seealso [linters] for a complete list of linters available in lintr.
@@ -21,8 +70,12 @@ fixed_regex_linter <- function() {
 
   # regular expression pattern is the second argument
   pos_2_regex_funs <- xp_text_in_table(c(
-    "strsplit", "tstrsplit",
-    # stringr functions. even though the user action is different
+    # base functions.
+    "strsplit",
+    # data.table functions.
+    "tstrsplit",
+    # stringr functions.
+    #   even though the user action is different
     #   (setting fixed=TRUE vs. wrapping stringr::fixed()),
     #   detection of the lint is the same
     "str_count", "str_detect", "str_ends", "str_extract", "str_extract_all",
@@ -34,23 +87,24 @@ fixed_regex_linter <- function() {
 
   # NB: strsplit doesn't have an ignore.case argument
   # NB: we intentionally exclude cases like gsub(x, c("a" = "b")), where "b" is fixed
-  xpath <- glue::glue("//expr[1][
-    SYMBOL_FUNCTION_CALL[ {pos_1_regex_funs} ]
-    and not(following-sibling::SYMBOL_SUB[
-      (text() = 'fixed' or text() = 'ignore.case')
-      and following-sibling::expr[1][NUM_CONST[text() = 'TRUE'] or SYMBOL[text() = 'T']]
-    ])
-  ]
-  /following-sibling::expr[1][STR_CONST and not(EQ_SUB)]
+  xpath <- glue::glue("
+  //SYMBOL_FUNCTION_CALL[ {pos_1_regex_funs} ]
+    /parent::expr[
+      not(following-sibling::SYMBOL_SUB[
+        (text() = 'fixed' or text() = 'ignore.case')
+        and following-sibling::expr[1][NUM_CONST[text() = 'TRUE'] or SYMBOL[text() = 'T']]
+      ])
+    ]
+    /following-sibling::expr[1][STR_CONST and not(EQ_SUB)]
   |
-  //expr[1][
-    SYMBOL_FUNCTION_CALL[ {pos_2_regex_funs} ]
-    and not(following-sibling::SYMBOL_SUB[
-      text() = 'fixed'
-      and following-sibling::expr[1][NUM_CONST[text() = 'TRUE'] or SYMBOL[text() = 'T']]
-    ])
-  ]
-  /following-sibling::expr[2][STR_CONST and not(EQ_SUB)]
+  //SYMBOL_FUNCTION_CALL[ {pos_2_regex_funs} ]
+    /parent::expr[
+      not(following-sibling::SYMBOL_SUB[
+        text() = 'fixed'
+        and following-sibling::expr[1][NUM_CONST[text() = 'TRUE'] or SYMBOL[text() = 'T']]
+      ])
+    ]
+    /following-sibling::expr[2][STR_CONST and not(EQ_SUB)]
   ")
 
   Linter(function(source_expression) {
@@ -181,7 +235,7 @@ get_token_replacement <- function(token_content, token_type) {
       token_content
     }
   } else { # char_escape token
-    if (rex::re_matches(token_content, rex::rex("\\", one_of("^${}().*+?|[]\\<>:")))) {
+    if (rex::re_matches(token_content, rex::rex("\\", one_of("^${}().*+?|[]\\<>=:;/_-!@#%&,~")))) {
       substr(token_content, start = 2L, stop = nchar(token_content))
     } else {
       eval(parse(text = paste0('"', token_content, '"')))

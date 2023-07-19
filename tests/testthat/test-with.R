@@ -1,3 +1,13 @@
+test_that("modify_defaults produces error with missing or incorrect defaults", {
+  lint_msg <- "`defaults` must be a named list."
+  expect_error(modify_defaults(), lint_msg, fixed = TRUE)
+  expect_error(modify_defaults("assignment_linter"), lint_msg, fixed = TRUE)
+})
+
+test_that("linters_with_tags produces error with incorrect tags", {
+  expect_error(linters_with_tags(1L:4L), "`tags` must be a character vector, or NULL.", fixed = TRUE)
+})
+
 test_that("linters_with_defaults works as expected with unnamed args", {
   # assignment_linter is in defaults, so output doesn't change
   expect_named(linters_with_defaults(assignment_linter), names(linters_with_defaults()))
@@ -11,24 +21,34 @@ test_that("linters_with_defaults warns on unused NULLs", {
   )
 })
 
+test_that("linters_with_tags() verifies the output of available_linters()", {
+  skip_if_not_installed("mockery")
+  mockery::stub(
+    linters_with_tags,
+    "available_linters",
+    data.frame(linter = c("fake_linter", "very_fake_linter"), package = "lintr", tags = "", stringsAsFactors = FALSE)
+  )
+  expect_error(
+    linters_with_tags(NULL),
+    "'fake_linter' and 'very_fake_linter'"
+  )
+})
+
 test_that("all default linters are tagged default", {
   expect_named(linters_with_defaults(), available_linters(tags = "default")$linter)
 
-  # TODO(michaelchirico): use plain expect_equal after waldo#133 makes it into a CRAN release
-  # Here, the environment()s are different because factories use them.
-  skip_if_not_r_version("4.1.0") # Desired all.equal behaviour only available in >= 4.1
+  skip_if_not_installed("waldo", "0.4.0") # needs waldo#133
   # covr modifies package functions causing differing deparse() results even for identical anonymous functions.
   # This happens because default_linters is generated at build time and thus not modifiable by covr, whereas
   # linters_with_tags() constructs the linters at runtime.
-  skip_if(requireNamespace("covr", quietly = TRUE) && covr::in_covr())
+  skip_on_covr()
 
-  # all.equal.default warns on some releases of R if the input is a function, see #1392
-  expect_silent(result <- all.equal(linters_with_tags("default"), linters_with_defaults()))
-  expect_true(result)
-  expect_length(linters_with_tags("default", exclude_tags = "default"), 0L)
+  expect_identical(linters_with_tags("default"), linters_with_defaults())
+  expect_length(linters_with_tags(NULL, exclude_tags = available_tags()), 0L)
 
   # Check that above test also trips on default arguments.
-  expect_equal(
+  skip_if_not_r_version("4.1.0") # Desired all.equal behavior only available in >= 4.1
+  expect_identical(
     all.equal(linters_with_tags("default"), linters_with_defaults(line_length_linter(120L))),
     'Component "line_length_linter": Component "length": Mean relative difference: 0.5'
   )
@@ -48,15 +68,19 @@ test_that("can instantiate all linters without arguments", {
 test_that("with_defaults is supported with a deprecation warning", {
   defaults <- linters_with_defaults()
   expect_warning(
-    old_defaults <- with_defaults(),
+    {
+      old_defaults <- with_defaults()
+    },
     rex::rex("Use linters_with_defaults or modify_defaults instead.")
   )
   expect_identical(defaults, old_defaults)
 
   # linters_with_defaults only accepts `defaults = list()` to start from blank
-  defaults <- linters_with_defaults(defaults = list(), no_tab_linter())
+  defaults <- linters_with_defaults(defaults = list(), whitespace_linter())
   expect_warning(
-    old_defaults <- with_defaults(default = NULL, no_tab_linter()),
+    {
+      old_defaults <- with_defaults(default = NULL, whitespace_linter())
+    },
     rex::rex("Use linters_with_defaults or modify_defaults instead.")
   )
   expect_identical(defaults, old_defaults)
@@ -64,24 +88,47 @@ test_that("with_defaults is supported with a deprecation warning", {
 
 test_that("modify_defaults works", {
   my_default <- list(a = 1L, b = 2L, c = 3L)
-  expect_equal(modify_defaults(defaults = my_default), my_default)
-  expect_equal(modify_defaults(defaults = my_default, a = 2L), list(a = 2L, b = 2L, c = 3L))
-  expect_equal(modify_defaults(defaults = my_default, c = NULL), list(a = 1L, b = 2L))
+  expect_identical(modify_defaults(defaults = my_default), my_default)
+  expect_identical(modify_defaults(defaults = my_default, a = 2L), list(a = 2L, b = 2L, c = 3L))
+  expect_identical(modify_defaults(defaults = my_default, c = NULL), list(a = 1L, b = 2L))
 
   # auto-sorts
-  expect_equal(modify_defaults(defaults = list(b = 2L, a = 1L), c = 3L), my_default)
+  expect_identical(modify_defaults(defaults = list(b = 2L, a = 1L), c = 3L), my_default)
 })
 
 test_that("linters_with_defaults(default = .) is supported with a deprecation warning", {
-  expect_warning(linters <- linters_with_defaults(default = list(), no_tab_linter()), "'default'")
-  expect_named(linters, "no_tab_linter")
+  expect_warning(
+    {
+      linters <- linters_with_defaults(default = list(), whitespace_linter())
+    },
+    "'default'"
+  )
+  expect_named(linters, "whitespace_linter")
 
   # the same warning is not triggered in modify_defaults
-  expect_silent(linters <- modify_defaults(defaults = list(), default = list(), no_tab_linter()))
-  expect_named(linters, c("default", "no_tab_linter"))
+  expect_silent({
+    linters <- modify_defaults(defaults = list(), default = list(), whitespace_linter())
+  })
+  expect_named(linters, c("default", "whitespace_linter"))
 
   # if default= is explicitly provided alongside defaults=, assume that was intentional
   default <- Linter(function(.) list())
-  expect_silent(linters <- linters_with_defaults(defaults = list(), default = default))
+  expect_silent({
+    linters <- linters_with_defaults(defaults = list(), default = default)
+  })
   expect_named(linters, "default")
+})
+
+test_that("all_linters contains all available linters", {
+  all_linters <- all_linters(packages = "lintr")
+
+  expect_identical(linters_with_tags(NULL, packages = "lintr"), all_linters)
+  expect_length(all_linters, nrow(available_linters()))
+})
+
+test_that("all_linters respects ellipsis argument", {
+  expect_identical(
+    linters_with_tags(tags = NULL, implicit_integer_linter = NULL),
+    all_linters(packages = "lintr", implicit_integer_linter = NULL)
+  )
 })

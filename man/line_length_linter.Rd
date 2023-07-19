@@ -7,14 +7,30 @@
 line_length_linter(length = 80L)
 }
 \arguments{
-\item{length}{maximum line length allowed.}
+\item{length}{maximum line length allowed. Default is 80L (Hollerith limit).}
 }
 \description{
 Check that the line length of both comments and code is less than \code{length}.
 }
+\examples{
+# will produce lints
+lint(
+  text = strrep("x", 23L),
+  linters = line_length_linter(length = 20L)
+)
+
+# okay
+lint(
+  text = strrep("x", 21L),
+  linters = line_length_linter(length = 40L)
+)
+
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#long-lines}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#long-lines}
+}
 }
 \section{Tags}{
 \link[=configurable_linters]{configurable}, \link[=default_linters]{default}, \link[=readability_linters]{readability}, \link[=style_linters]{style}

@@ -2,15 +2,28 @@
 #'
 #' Check that the line length of both comments and code is less than `length`.
 #'
-#' @param length maximum line length allowed.
+#' @param length maximum line length allowed. Default is 80L (Hollerith limit).
+#'
+#' @examples
+#' # will produce lints
+#' lint(
+#'   text = strrep("x", 23L),
+#'   linters = line_length_linter(length = 20L)
+#' )
+#'
+#' # okay
+#' lint(
+#'   text = strrep("x", 21L),
+#'   linters = line_length_linter(length = 40L)
+#' )
+#'
 #' @evalRd rd_tags("line_length_linter")
 #' @seealso
-#'   [linters] for a complete list of linters available in lintr. \cr
-#'   <https://style.tidyverse.org/syntax.html#long-lines>
+#' - [linters] for a complete list of linters available in lintr.
+#' - <https://style.tidyverse.org/syntax.html#long-lines>
 #' @export
 line_length_linter <- function(length = 80L) {
   Linter(function(source_expression) {
-
     # Only go over complete file
     if (!is_lint_level(source_expression, "file")) {
       return(list())

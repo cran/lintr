@@ -12,7 +12,7 @@
 
 <meta name="author" content="lintr maintainers" />
 
-<meta name="date" content="2022-10-11" />
+<meta name="date" content="2023-07-19" />
 
 <title>Creating new linters</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Creating new linters</h1>
 <h4 class="author">lintr maintainers</h4>
-<h4 class="date">2022-10-11</h4>
+<h4 class="date">2023-07-19</h4>
 
 
 
@@ -468,12 +468,19 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
 <p>It is always better to write too many tests rather than too few.</p>
 </div>
+<div id="other-utilities-for-writing-custom-linters" class="section level2">
+<h2>Other utilities for writing custom linters</h2>
+<p>Besides <code>is_lint_level()</code>, <code>{lintr}</code> also exports some other helpers generally useful for writing custom linters; these are used a lot in the internals of our own helpers, and so they’ve been tested and demonstrated their utility already.</p>
+<ul>
+<li><code>get_r_string()</code>: Whenever your linter needs to examine the value of a character literal (e.g., whether an argument value is set to some string), use this to extract the string exactly as R will see it. This is especially important to make your logic robust to R-4-style raw strings like <code>R&quot;-(hello)-&quot;</code>, which is otherwise difficult to express, for example as an XPath.</li>
+</ul>
+</div>
 <div id="contributing-to-lintr" class="section level2">
 <h2>Contributing to <code>{lintr}</code></h2>
 <div id="more-details-about-writing-tests-for-new-lintr-linters" class="section level3">
 <h3>More details about writing tests for new <code>{lintr}</code> linters</h3>
 <p>The <code>{lintr}</code> package uses <a href="https://github.com/r-lib/testthat">testthat</a> for testing. You can run all of the currently available tests using <code>devtools::test()</code>. If you want to run only the tests in a given file use the <code>filter</code> argument to <code>devtools::test()</code>.</p>
-<p>Linter tests should be put in the <a href="https://github.com/r-lib/lintr/tree/master/tests/testthat">tests/testthat/</a> folder. The test filename should be the linter name prefixed by <code>test-</code>, e.g. <code>test-pipe_continuation_linter.R</code>.</p>
+<p>Linter tests should be put in the <a href="https://github.com/r-lib/lintr/tree/main/tests/testthat">tests/testthat/</a> folder. The test filename should be the linter name prefixed by <code>test-</code>, e.g. <code>test-pipe_continuation_linter.R</code>.</p>
 </div>
 <div id="adding-your-linter-to-the-default_linters" class="section level3">
 <h3>Adding your linter to the default_linters</h3>

@@ -36,7 +36,9 @@ linters_with_args <- lapply(
 
 make_setting_string <- function(linter_name) {
   args <- linters_with_args[[linter_name]]
-  if (is.null(args)) return("")
+  if (is.null(args)) {
+    return("")
+  }
 
   arglist <- vapply(args, function(arg) {
     env <- environment(default_linters[[linter_name]])
@@ -53,6 +55,16 @@ defaults_table <- data.frame(
 )
 
 knitr::kable(defaults_table)
+
+## -----------------------------------------------------------------------------
+lintr::available_tags(packages = "lintr")
+
+## -----------------------------------------------------------------------------
+linters <- lintr::linters_with_tags(tags = c("package_development", "readability"))
+names(linters)
+
+## -----------------------------------------------------------------------------
+names(lintr::all_linters())
 
 ## ----programmatic_lintr-------------------------------------------------------
 library(lintr)
@@ -75,15 +87,18 @@ withr::with_tempfile("tmp", {
 
 ## ---- echo = FALSE------------------------------------------------------------
 lintr::lint("X = 42L # -------------- this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 
 ## ---- echo = FALSE------------------------------------------------------------
 lintr::lint("X = 42L # nolint ------ this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 
 ## ---- echo = FALSE------------------------------------------------------------
 lintr::lint("X = 42L # nolint: object_name_linter. this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 
 ## ---- echo = FALSE------------------------------------------------------------
 lintr::lint(
@@ -108,5 +123,6 @@ lintr::lint("# x <- 42L\n# print(x)\n", parse_settings = FALSE)
 
 ## ---- echo = FALSE------------------------------------------------------------
 lintr::lint("# nolint start: commented_code_linter.\n# x <- 42L\n# print(x)\n# nolint end\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 

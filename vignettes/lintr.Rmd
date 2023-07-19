@@ -89,12 +89,15 @@ exclusions: list(
 ### Other configuration options
 
 More generally, `lintr` searches for a settings file according to following prioritized list.
-The first one found, if any, will be used.
+The first one found, if any, will be used:
 
-1.  If `options(lintr.linter_file)` is an absolute path, this file will be used. The default for this option is `".lintr"`.
-2.  A linter file (that is a file named like `lintr.linter_file`) in the currently searched directory, i.e. the directory of the file passed to `lint()`. When run from `lint_package()`, this directory can differ for each linted file.
-3.  A linter file in a parent directory of the currently-searched directory, starting from the deepest path, moving upwards one level at a time.
+1.  If `options("lintr.linter_file")` is an absolute path, this file will be used. The default for this option is `".lintr"` or the value of the environment variable `R_LINTR_LINTER_FILE`, if set.
+2.  A project-local linter file; that is, either
+    1.  a linter file (that is, a file named like `lintr.linter_file`) in the currently-searched directory, i.e. the directory of the file passed to `lint()`; or
+    2.  a linter file in the `.github/linters` child directory of the currently-searched directory.
+3.  A project-local linter file in the closest parent directory of the currently-searched directory, starting from the deepest path, moving upwards one level at a time. When run from `lint_package()`, this directory can differ for each linted file.
 4.  A linter file in the user's `HOME` directory.
+5.  A linter file called `config` in the user's configuration path (given by `tools::R_user_dir("lintr", which = "config")`).
 
 If no linter file is found, only default settings take effect (see [defaults](#defaults)).
 
@@ -150,12 +153,13 @@ If an Encoding is found in a `.Rproj` file or a `DESCRIPTION` file, that encodin
 
 If you only want to customize some linters, you can use the helper function `linters_with_defaults()`, which will keep all unnamed linters with the default settings.
 Disable a linter by passing `NULL`.
-For example, to set the line length limit to 120 characters and globally disable the `no_tab_linter`, you can put this into your `.lintr`:
+
+For example, to set the line length limit to 120 characters and globally disable the `whitespace_linter()`, you can put this into your `.lintr`:
 
 ``` r
 linters: linters_with_defaults(
     line_length_linter = line_length_linter(120L),
-    no_tab_linter = NULL
+    whitespace_linter = NULL
   )
 ```
 
@@ -173,7 +177,9 @@ linters_with_args <- lapply(
 
 make_setting_string <- function(linter_name) {
   args <- linters_with_args[[linter_name]]
-  if (is.null(args)) return("")
+  if (is.null(args)) {
+    return("")
+  }
 
   arglist <- vapply(args, function(arg) {
     env <- environment(default_linters[[linter_name]])
@@ -190,6 +196,52 @@ defaults_table <- data.frame(
 )
 
 knitr::kable(defaults_table)
+```
+
+Another way to customize linters is by specifying tags in `linters_with_tags()`.
+The available tags are listed below:
+
+```{r}
+lintr::available_tags(packages = "lintr")
+```
+
+You can select tags of interest to see which linters are included:
+
+```{r}
+linters <- lintr::linters_with_tags(tags = c("package_development", "readability"))
+names(linters)
+```
+
+You can include tag-based linters in the configuration file, and customize them further:
+
+```yaml
+linters: linters_with_tags(
+    tags = c("package_development", "readability"),
+    yoda_test_linter = NULL
+  )
+```
+
+#### Using all available linters
+
+The default lintr configuration includes only linters relevant to the tidyverse style guide, but there are many other linters available in `{lintr}`. You can see a list of all available linters using
+
+```{r}
+names(lintr::all_linters())
+```
+
+If you want to use all available linters, you can include this in your `.lintr` file:
+
+```yaml
+linters: all_linters()
+```
+
+If you want to use all available linters *except* a few, you can exclude them using `NULL`:
+
+```yaml
+linters: all_linters(
+    commented_code_linter = NULL,
+    implicit_integer_linter = NULL
+  )
 ```
 
 #### Advanced: programmatic retrieval of linters
@@ -243,7 +295,8 @@ X = 42L # -------------- this comment overflows the default 80 chars line length
 
 ```{r, echo = FALSE}
 lintr::lint("X = 42L # -------------- this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 ```
 
 **file2.R**
@@ -256,7 +309,8 @@ X = 42L # nolint ------ this comment overflows the default 80 chars line length.
 
 ```{r, echo = FALSE}
 lintr::lint("X = 42L # nolint ------ this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 ```
 
 Observe how all lints were suppressed and no output is shown.
@@ -275,7 +329,8 @@ X = 42L # nolint: object_name_linter. this comment overflows the default 80 char
 
 ```{r, echo = FALSE}
 lintr::lint("X = 42L # nolint: object_name_linter. this comment overflows the default 80 chars line length.\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 ```
 
 Observe how only the `object_name_linter` was suppressed.
@@ -346,7 +401,8 @@ lintr::lint("# x <- 42L\n# print(x)\n", parse_settings = FALSE)
 
 ```{r, echo = FALSE}
 lintr::lint("# nolint start: commented_code_linter.\n# x <- 42L\n# print(x)\n# nolint end\n",
-            parse_settings = FALSE)
+  parse_settings = FALSE
+)
 ```
 
 (No lints)

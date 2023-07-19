@@ -1,18 +1,3 @@
-test_that("line_info works as expected", {
-  expect_identical(
-    line_info(integer(), type = "end"),
-    "0 range ends"
-  )
-  expect_identical(
-    line_info(2L, type = "start"),
-    "1 range start (line 2)"
-  )
-  expect_identical(
-    line_info(c(2L, 5L), type = "end"),
-    "2 range ends (lines 2, 5)"
-  )
-})
-
 test_that("it excludes properly", {
   withr::local_options(
     lintr.exclude = "#TeSt_NoLiNt",
@@ -20,18 +5,15 @@ test_that("it excludes properly", {
     lintr.exclude_end = "#TeSt_NoLiNt_EnD"
   )
 
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
 
   t1 <- lint("exclusions-test", parse_settings = FALSE)
-
   expect_length(t1, 8L)
 
   t2 <- lint("exclusions-test", exclusions = list("exclusions-test" = 4L), parse_settings = FALSE)
-
   expect_length(t2, 7L)
 
   t3 <- lint("exclusions-test", exclusions = list("exclusions-test"), parse_settings = FALSE)
-
   expect_length(t3, 0L)
 
   cache_path <- file.path(tempdir(), "lintr_cache")
@@ -39,7 +21,7 @@ test_that("it excludes properly", {
   for (info in sprintf("caching: pass %s", 1L:4L)) {
     t4 <- lint("exclusions-test", cache = cache_path, parse_settings = FALSE)
 
-    expect_equal(length(t4), 8L, info = info)
+    expect_identical(length(t4), 8L, info = info)
   }
 })
 
@@ -49,33 +31,33 @@ test_that("it doesn't fail when encountering misspecified encodings", {
     lintr.exclude_start = "#TeSt_NoLiNt_StArT",
     lintr.exclude_end = "#TeSt_NoLiNt_EnD"
   )
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
 
-  expect_length(parse_exclusions("dummy_projects/project/cp1252.R"), 0L)
+  expect_length(lintr:::parse_exclusions("dummy_projects/project/cp1252.R"), 0L)
 })
 
 test_that("it gives the expected error message when there is only one start but no end", {
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
 
   expect_error(
-    parse_exclusions("dummy_projects/project/one_start_no_end.R"),
+    lintr:::parse_exclusions("dummy_projects/project/one_start_no_end.R"),
     "has 1 range start (line 3) but only 0 range ends for exclusion from linting",
     fixed = TRUE
   )
 })
 
 test_that("it gives the expected error message when there is mismatch between multiple starts and ends", {
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
 
   expect_error(
-    parse_exclusions("dummy_projects/project/mismatched_starts_ends.R"),
+    lintr:::parse_exclusions("dummy_projects/project/mismatched_starts_ends.R"),
     "has 3 range starts (lines 3, 7, 11) but only 2 range ends (lines 1, 9) for exclusion from linting",
     fixed = TRUE
   )
 })
 
 test_that("partial matching works for exclusions but warns if no linter found", {
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
 
   expect_warning(
     expect_warning(
@@ -126,7 +108,6 @@ test_that("#1413: lint_dir properly excludes files", {
 
   expect_length(lint(file.path(tmp, "bad.R")), 0L)
   expect_length(lint_dir(tmp), 0L)
-
 })
 
 test_that("#1442: is_excluded_files works if no global exclusions are specified", {
@@ -160,12 +141,12 @@ test_that("#1442: is_excluded_files works if no global exclusions are specified"
     file.path(tmp, "bad.R")
   )
 
-  # 3 lints: assignment_linter(), single_quotes_linter() and line_length_linter()
+  # 3 lints: assignment_linter(), quotes_linter() and line_length_linter()
   expect_lint(
     file = file.path(tmp, "bad.R"),
     checks = list(
       list(linter = "assignment_linter", line_number = 1L),
-      list(linter = "single_quotes_linter", line_number = 1L),
+      list(linter = "quotes_linter", line_number = 1L),
       list(linter = "line_length_linter", line_number = 1L)
     )
   )

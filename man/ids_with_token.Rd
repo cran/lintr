@@ -5,7 +5,7 @@
 \alias{with_id}
 \title{Get parsed IDs by token}
 \usage{
-ids_with_token(source_expression, value, fun = `==`, source_file)
+ids_with_token(source_expression, value, fun = `==`, source_file = NULL)
 
 with_id(source_expression, id, source_file)
 }
@@ -47,3 +47,10 @@ Gets the source IDs (row indices) corresponding to given token.
 conjunction with \code{ids_with_token} to iterate over rows containing desired tokens.
 
 }}
+\examples{
+tmp <- withr::local_tempfile(lines = c("x <- 1", "y <- x + 1"))
+source_exprs <- get_source_expressions(tmp)
+ids_with_token(source_exprs$expressions[[1L]], value = "SYMBOL")
+with_id(source_exprs$expressions[[1L]], 2L)
+
+}

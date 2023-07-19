@@ -6,10 +6,57 @@
 #'   If `FALSE`, [`<<-`][base::assignOps] and `->>` are not allowed.
 #' @param allow_right_assign Logical, default `FALSE`. If `TRUE`, `->` and `->>` are allowed.
 #' @param allow_trailing Logical, default `TRUE`. If `FALSE` then assignments aren't allowed at end of lines.
+#'
+#' @examples
+#' # will produce lints
+#' lint(
+#'   text = "x = mean(x)",
+#'   linters = assignment_linter()
+#' )
+#'
+#' code_lines <- "1 -> x\n2 ->> y"
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = assignment_linter()
+#' )
+#'
+#' # okay
+#' lint(
+#'   text = "x <- mean(x)",
+#'   linters = assignment_linter()
+#' )
+#'
+#' code_lines <- "x <- 1\ny <<- 2"
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = assignment_linter()
+#' )
+#'
+#' # customizing using arguments
+#' code_lines <- "1 -> x\n2 ->> y"
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = assignment_linter(allow_right_assign = TRUE)
+#' )
+#'
+#' lint(
+#'   text = "x <<- 1",
+#'   linters = assignment_linter(allow_cascading_assign = FALSE)
+#' )
+#'
+#' writeLines("foo(bar = \n 1)")
+#' lint(
+#'   text = "foo(bar = \n 1)",
+#'   linters = assignment_linter(allow_trailing = FALSE)
+#' )
+#'
 #' @evalRd rd_tags("assignment_linter")
 #' @seealso
-#'   [linters] for a complete list of linters available in lintr. \cr
-#'   <https://style.tidyverse.org/syntax.html#assignment-1>
+#' - [linters] for a complete list of linters available in lintr.
+#' - <https://style.tidyverse.org/syntax.html#assignment-1>
 #' @export
 assignment_linter <- function(allow_cascading_assign = TRUE, allow_right_assign = FALSE, allow_trailing = TRUE) {
   trailing_assign_xpath <- paste(
@@ -20,7 +67,7 @@ assignment_linter <- function(allow_cascading_assign = TRUE, allow_right_assign 
       "//EQ_SUB",
       "//EQ_FORMALS"
     ),
-    "[@line1 < following-sibling::*[1]/@line1 or //COMMENT]"
+    "[@line1 < following-sibling::expr[1]/@line1]"
   )
 
   xpath <- paste(collapse = " | ", c(

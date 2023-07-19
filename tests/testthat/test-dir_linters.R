@@ -20,7 +20,7 @@ test_that("lint all relevant directories in a package", {
     c("package.Rproj", "DESCRIPTION", "NAMESPACE", "lintr_test_config")
   )
 
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
   lints <- lint_package(the_pkg, parse_settings = FALSE)
   linted_files <- unique(names(lints))
 
@@ -34,7 +34,7 @@ test_that("lint all relevant directories in a package", {
   # We want to ensure that object_name_linter uses namespace_imports correctly.
   # assignment_linter is needed to cause a lint in all vignettes.
   linters <- list(assignment_linter(), object_name_linter())
-  read_settings(NULL)
+  lintr:::read_settings(NULL)
   lints <- lint_package(the_pkg, linters = linters, parse_settings = FALSE)
   linted_files <- unique(names(lints))
 
@@ -95,10 +95,10 @@ test_that("lint_dir works with specific linters without specifying other argumen
 
 test_that("lint_dir continues to accept relative_path= in 2nd positional argument, with a warning", {
   the_dir <- test_path("dummy_packages", "package", "vignettes")
-  expect_warning(
-    positional_lints <- lint_dir(the_dir, FALSE),
+
+  expect_error(
+    lint_dir(the_dir, FALSE),
     "'relative_path' is no longer available as a positional argument",
     fixed = TRUE
   )
-  expect_identical(positional_lints, lint_dir(the_dir, relative_path = FALSE))
 })

@@ -5,6 +5,23 @@
 #'   fine for exploration, but shouldn't ultimately be checked in. Comments
 #'   meant for posterity should be placed *before* the final `return()`.
 #'
+#' @examples
+#' # will produce lints
+#' code_lines <- "f <- function() {\n  return(1 + 1)\n  2 + 2\n}"
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = unreachable_code_linter()
+#' )
+#'
+#' # okay
+#' code_lines <- "f <- function() {\n  return(1 + 1)\n}"
+#' writeLines(code_lines)
+#' lint(
+#'   text = code_lines,
+#'   linters = unreachable_code_linter()
+#' )
+#'
 #' @evalRd rd_tags("unreachable_code_linter")
 #' @seealso [linters] for a complete list of linters available in lintr.
 #' @export
@@ -17,14 +34,14 @@ unreachable_code_linter <- function() {
   #  - land on the culprit expression
   xpath <- "
   //FUNCTION
-  /following-sibling::expr
-  /*[
-    self::expr
-    and expr[1][not(OP-DOLLAR) and SYMBOL_FUNCTION_CALL[text() = 'return' or text() = 'stop']]
-    and (position() != last() - 1 or not(following-sibling::OP-RIGHT-BRACE))
-    and @line2 < following-sibling::*[1]/@line2
-  ]
-  /following-sibling::*[1]
+    /following-sibling::expr
+    /*[
+      self::expr
+      and expr[1][not(OP-DOLLAR) and SYMBOL_FUNCTION_CALL[text() = 'return' or text() = 'stop']]
+      and (position() != last() - 1 or not(following-sibling::OP-RIGHT-BRACE))
+      and @line2 < following-sibling::*[1]/@line2
+    ]
+    /following-sibling::*[1]
   "
 
   Linter(function(source_expression) {

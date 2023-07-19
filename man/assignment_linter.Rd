@@ -21,10 +21,59 @@ If \code{FALSE}, \code{\link[base:assignOps]{<<-}} and \verb{->>} are not allowe
 \description{
 Check that \verb{<-} is always used for assignment.
 }
+\examples{
+# will produce lints
+lint(
+  text = "x = mean(x)",
+  linters = assignment_linter()
+)
+
+code_lines <- "1 -> x\n2 ->> y"
+writeLines(code_lines)
+lint(
+  text = code_lines,
+  linters = assignment_linter()
+)
+
+# okay
+lint(
+  text = "x <- mean(x)",
+  linters = assignment_linter()
+)
+
+code_lines <- "x <- 1\ny <<- 2"
+writeLines(code_lines)
+lint(
+  text = code_lines,
+  linters = assignment_linter()
+)
+
+# customizing using arguments
+code_lines <- "1 -> x\n2 ->> y"
+writeLines(code_lines)
+lint(
+  text = code_lines,
+  linters = assignment_linter(allow_right_assign = TRUE)
+)
+
+lint(
+  text = "x <<- 1",
+  linters = assignment_linter(allow_cascading_assign = FALSE)
+)
+
+writeLines("foo(bar = \n 1)")
+lint(
+  text = "foo(bar = \n 1)",
+  linters = assignment_linter(allow_trailing = FALSE)
+)
+
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#assignment-1}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#assignment-1}
+}
 }
 \section{Tags}{
-\link[=consistency_linters]{consistency}, \link[=default_linters]{default}, \link[=style_linters]{style}
+\link[=configurable_linters]{configurable}, \link[=consistency_linters]{consistency}, \link[=default_linters]{default}, \link[=style_linters]{style}
 }

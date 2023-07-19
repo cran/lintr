@@ -12,10 +12,43 @@
 #'
 #' @param allow_single_line if `TRUE`, allow an open and closed curly pair on the same line.
 #'
+#' @examples
+#' # will produce lints
+#' lint(
+#'   text = "f <- function() { 1 }",
+#'   linters = brace_linter()
+#' )
+#'
+#' writeLines("if (TRUE) {\n return(1) }")
+#' lint(
+#'   text = "if (TRUE) {\n return(1) }",
+#'   linters = brace_linter()
+#' )
+#'
+#' # okay
+#' writeLines("f <- function() {\n  1\n}")
+#' lint(
+#'   text = "f <- function() {\n  1\n}",
+#'   linters = brace_linter()
+#' )
+#'
+#' writeLines("if (TRUE) { \n return(1) \n}")
+#' lint(
+#'   text = "if (TRUE) { \n return(1) \n}",
+#'   linters = brace_linter()
+#' )
+#'
+#' # customizing using arguments
+#' writeLines("if (TRUE) { return(1) }")
+#' lint(
+#'   text = "if (TRUE) { return(1) }",
+#'   linters = brace_linter(allow_single_line = TRUE)
+#' )
 #' @evalRd rd_tags("brace_linter")
-#' @seealso [linters] for a complete list of linters available in lintr. \cr
-#'   <https://style.tidyverse.org/syntax.html#indenting> \cr
-#'   <https://style.tidyverse.org/syntax.html#if-statements>
+#' @seealso
+#' - [linters] for a complete list of linters available in lintr.
+#' - <https://style.tidyverse.org/syntax.html#indenting>
+#' - <https://style.tidyverse.org/syntax.html#if-statements>
 #' @export
 brace_linter <- function(allow_single_line = FALSE) {
   xp_cond_open <- xp_and(c(
@@ -25,8 +58,8 @@ brace_linter <- function(allow_single_line = FALSE) {
     },
     # double curly
     "not(
-      (@line1 = parent::expr/preceding-sibling::OP-LEFT-BRACE/@line1) or
-      (@line1 = following-sibling::expr/OP-LEFT-BRACE/@line1)
+      (@line1 = parent::expr/preceding-sibling::OP-LEFT-BRACE/@line1)
+      or (@line1 = following-sibling::expr/OP-LEFT-BRACE/@line1)
     )",
     # allow `(`, `,` and `%>%` on preceding line
     #
@@ -34,18 +67,19 @@ brace_linter <- function(allow_single_line = FALSE) {
     # so no exception needs to be made for this operator
     "not(
       @line1 > parent::expr/preceding-sibling::*[not(self::COMMENT)][1][
-        self::OP-LEFT-PAREN or
-        self::OP-COMMA or
-        (self::SPECIAL and text() = '%>%')
+        self::OP-LEFT-PAREN
+        or self::OP-COMMA
+        or (self::SPECIAL and text() = '%>%')
       ]/@line2
     )"
   ))
 
   # TODO (AshesITR): if c_style_braces is TRUE, invert the preceding-sibling condition
   xp_open_curly <- glue::glue("//OP-LEFT-BRACE[
-    { xp_cond_open } and (
-      not(@line1 = parent::expr/preceding-sibling::*/@line2) or
-      @line1 = following-sibling::*[1][not(self::COMMENT)]/@line1
+    { xp_cond_open }
+    and (
+      not(@line1 = parent::expr/preceding-sibling::*/@line2)
+      or @line1 = following-sibling::*[1][not(self::COMMENT or self::OP-RIGHT-BRACE)]/@line1
     )
   ]")
 
@@ -53,8 +87,7 @@ brace_linter <- function(allow_single_line = FALSE) {
 
   xp_paren_brace <- glue::glue("//OP-LEFT-BRACE[
     @line1 = { xp_open_preceding }/@line1
-    and
-    @col1 = { xp_open_preceding }/@col2 + 1
+    and @col1 = { xp_open_preceding }/@col2 + 1
   ]")
 
   xp_cond_closed <- xp_and(c(
@@ -66,20 +99,22 @@ brace_linter <- function(allow_single_line = FALSE) {
     "not(
       @line1 = ancestor::expr/following-sibling::*[1][
         self::OP-COMMA or self::OP-RIGHT-BRACKET or self::OP-RIGHT-PAREN
-      ]/@line1
+      ]
+        /@line1
     )",
     # double curly
     "not(
-      (@line1 = parent::expr/following-sibling::OP-RIGHT-BRACE/@line1) or
-      (@line1 = preceding-sibling::expr/OP-RIGHT-BRACE/@line1)
+      (@line1 = parent::expr/following-sibling::OP-RIGHT-BRACE/@line1)
+      or (@line1 = preceding-sibling::expr/OP-RIGHT-BRACE/@line1)
     )"
   ))
 
   # TODO (AshesITR): if c_style_braces is TRUE, skip the not(ELSE) condition
   xp_closed_curly <- glue::glue("//OP-RIGHT-BRACE[
-    { xp_cond_closed } and (
-      (@line1 = preceding-sibling::*[1]/@line2) or
-      (@line1 = parent::expr/following-sibling::*[1][not(self::ELSE)]/@line1)
+    { xp_cond_closed }
+    and (
+      (@line1 = preceding-sibling::*[1][not(self::OP-LEFT-BRACE)]/@line2)
+      or (@line1 = parent::expr/following-sibling::*[1][not(self::ELSE)]/@line1)
     )
   ]")
 
@@ -89,7 +124,7 @@ brace_linter <- function(allow_single_line = FALSE) {
   # TODO (AshesITR): if c_style_braces is TRUE, this needs to be @line2 + 1
   xp_else_same_line <- glue::glue("//ELSE[{xp_else_closed_curly} and @line1 != {xp_else_closed_curly}/@line2]")
 
-  xp_function_brace <- "//expr[FUNCTION and @line1 != @line2 and not(expr[OP-LEFT-BRACE])]"
+  xp_function_brace <- "//FUNCTION/parent::expr[@line1 != @line2 and not(expr[OP-LEFT-BRACE])]"
 
   # if (x) { ... } else if (y) { ... } else { ... } is OK; fully exact pairing
   #   of if/else would require this to be
@@ -98,7 +133,8 @@ brace_linter <- function(allow_single_line = FALSE) {
   xp_if_else_match_brace <- "
   //IF[
     following-sibling::expr[2][OP-LEFT-BRACE]
-    and following-sibling::ELSE
+    and
+      following-sibling::ELSE
         /following-sibling::expr[1][not(OP-LEFT-BRACE or IF/following-sibling::expr[2][OP-LEFT-BRACE])]
   ]
 
@@ -118,42 +154,61 @@ brace_linter <- function(allow_single_line = FALSE) {
     xml <- source_expression$xml_parsed_content
     lints <- list()
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_open_curly),
-      source_expression = source_expression,
-      lint_message =
-        "Opening curly braces should never go on their own line and should always be followed by a new line."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_open_curly),
+        source_expression = source_expression,
+        lint_message =
+          "Opening curly braces should never go on their own line and should always be followed by a new line."
+      )
+    )
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_paren_brace),
-      source_expression = source_expression,
-      lint_message = "There should be a space before an opening curly brace."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_paren_brace),
+        source_expression = source_expression,
+        lint_message = "There should be a space before an opening curly brace."
+      )
+    )
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_closed_curly),
-      source_expression = source_expression,
-      lint_message = "Closing curly-braces should always be on their own line, unless they are followed by an else."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_closed_curly),
+        source_expression = source_expression,
+        lint_message =
+          "Closing curly-braces should always be on their own line, unless they are followed by an else."
+      )
+    )
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_else_same_line),
-      source_expression = source_expression,
-      lint_message = "`else` should come on the same line as the previous `}`."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_else_same_line),
+        source_expression = source_expression,
+        lint_message = "`else` should come on the same line as the previous `}`."
+      )
+    )
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_function_brace),
-      source_expression = source_expression,
-      lint_message = "Any function spanning multiple lines should use curly braces."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_function_brace),
+        source_expression = source_expression,
+        lint_message = "Any function spanning multiple lines should use curly braces."
+      )
+    )
 
-    lints <- c(lints, xml_nodes_to_lints(
-      xml2::xml_find_all(xml, xp_if_else_match_brace),
-      source_expression = source_expression,
-      lint_message = "Either both or neither branch in `if`/`else` should use curly braces."
-    ))
+    lints <- c(
+      lints,
+      xml_nodes_to_lints(
+        xml2::xml_find_all(xml, xp_if_else_match_brace),
+        source_expression = source_expression,
+        lint_message = "Either both or neither branch in `if`/`else` should use curly braces."
+      )
+    )
 
     lints
   })

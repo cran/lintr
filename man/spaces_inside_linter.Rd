@@ -11,9 +11,35 @@ Check that parentheses and square brackets do not have spaces directly
 inside them, i.e., directly following an opening delimiter or directly
 preceding a closing delimiter.
 }
+\examples{
+# will produce lints
+lint(
+  text = "c( TRUE, FALSE )",
+  linters = spaces_inside_linter()
+)
+
+lint(
+  text = "x[ 1L ]",
+  linters = spaces_inside_linter()
+)
+
+# okay
+lint(
+  text = "c(TRUE, FALSE)",
+  linters = spaces_inside_linter()
+)
+
+lint(
+  text = "x[1L]",
+  linters = spaces_inside_linter()
+)
+
+}
 \seealso{
-\link{linters} for a complete list of linters available in lintr. \cr
-\url{https://style.tidyverse.org/syntax.html#parentheses}
+\itemize{
+\item \link{linters} for a complete list of linters available in lintr.
+\item \url{https://style.tidyverse.org/syntax.html#parentheses}
+}
 }
 \section{Tags}{
 \link[=default_linters]{default}, \link[=readability_linters]{readability}, \link[=style_linters]{style}
