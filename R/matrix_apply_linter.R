@@ -30,7 +30,6 @@
 #' @seealso [linters] for a complete list of linters available in lintr.
 #' @export
 matrix_apply_linter <- function() {
-
   # mean() and sum() have very different signatures so we treat them separately.
   # sum() takes values to sum over via ..., has just one extra argument and is not a generic
   # mean() is a generic, takes values to average via a single argument, and can have extra arguments
@@ -69,11 +68,11 @@ matrix_apply_linter <- function() {
     ]
   "
 
-  xpath <- glue::glue("{sums_xpath} | {means_xpath}")
+  xpath <- glue("{sums_xpath} | {means_xpath}")
 
   # This doesn't handle the case when MARGIN and FUN are named and in a different position
   # but this should be relatively rate
-  var_xpath  <- "expr[position() = 2]"
+  var_xpath <- "expr[position() = 2]"
   margin_xpath <- "expr[position() = 3]"
   fun_xpath <- "expr[position() = 4]"
 
@@ -83,17 +82,17 @@ matrix_apply_linter <- function() {
     }
     xml <- source_expression$xml_parsed_content
 
-    bad_expr <- xml2::xml_find_all(xml, xpath)
+    bad_expr <- xml_find_all(xml, xpath)
 
-    var <- xml2::xml_text(xml2::xml_find_all(bad_expr, var_xpath))
+    var <- xml_text(xml_find_all(bad_expr, var_xpath))
 
-    fun <- xml2::xml_text(xml2::xml_find_all(bad_expr, fun_xpath))
+    fun <- xml_text(xml_find_all(bad_expr, fun_xpath))
     fun <- tools::toTitleCase(fun)
 
-    margin <- xml2::xml_find_all(bad_expr, margin_xpath)
+    margin <- xml_find_all(bad_expr, margin_xpath)
 
-    narm_val <- xml2::xml_text(
-      xml2::xml_find_first(bad_expr, "SYMBOL_SUB[text() = 'na.rm']/following-sibling::expr")
+    narm_val <- xml_text(
+      xml_find_first(bad_expr, "SYMBOL_SUB[text() = 'na.rm']/following-sibling::expr")
     )
 
     recos <- Map(craft_colsums_rowsums_msg, var, margin, fun, narm_val)
@@ -108,13 +107,12 @@ matrix_apply_linter <- function() {
 }
 
 craft_colsums_rowsums_msg <- function(var, margin, fun, narm_val) {
-
-  if (is.na(xml2::xml_find_first(margin, "OP-COLON"))) {
-    l1 <- xml2::xml_text(margin)
+  if (is.na(xml_find_first(margin, "OP-COLON"))) {
+    l1 <- xml_text(margin)
     l2 <- NULL
   } else {
-    l1 <- xml2::xml_text(xml2::xml_find_first(margin, "expr[1]"))
-    l2 <- xml2::xml_text(xml2::xml_find_first(margin, "expr[2]"))
+    l1 <- xml_text(xml_find_first(margin, "expr[1]"))
+    l2 <- xml_text(xml_find_first(margin, "expr[2]"))
   }
 
   # See #1764 for details about various cases. In short:
@@ -131,15 +129,15 @@ craft_colsums_rowsums_msg <- function(var, margin, fun, narm_val) {
   l2 <- suppressWarnings(as.integer(re_substitutes(l2, "L$", "")))
 
   if (!is.na(narm_val)) {
-    narm <- glue::glue(", na.rm = {narm_val}")
+    narm <- glue(", na.rm = {narm_val}")
   } else {
     narm <- ""
   }
 
   if (identical(l1, 1L)) {
-    reco <- glue::glue("row{fun}s({var}{narm}, dims = {l2})")
+    reco <- glue("row{fun}s({var}{narm}, dims = {l2})")
   } else {
-    reco <- glue::glue(
+    reco <- glue(
       "row{fun}s(col{fun}s({var}{narm}, dims = {l1 - 1}), dims = {l2 - l1 + 1})",
       " or ",
       "col{fun}s({var}{narm}, dims = {l1 - 1}) if {var} has {l2} dimensions"
@@ -149,5 +147,5 @@ craft_colsums_rowsums_msg <- function(var, margin, fun, narm_val) {
   # It's easier to remove this after the fact, rather than having never ending if/elses
   reco <- gsub(", dims = 1", "", reco, fixed = TRUE)
 
-  return(reco)
+  reco
 }

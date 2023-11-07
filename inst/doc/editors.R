@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -14,7 +14,7 @@ maybe_still <- function(url) {
   }
 }
 
-## ---- echo = FALSE, results = 'asis'------------------------------------------
+## ----echo = FALSE, results = 'asis'-------------------------------------------
 if (!in_pkgdown) {
   cat(
     "Note: This vignette is best viewed [online](https://lintr.r-lib.org/articles/editors.html),",

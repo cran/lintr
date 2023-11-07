@@ -218,10 +218,7 @@ test_that("returned data structure is complete", {
 
   for (i in seq_along(lines)) {
     expr <- exprs$expressions[[i]]
-    expect_named(expr, c(
-      "filename", "line", "column", "lines", "parsed_content", "xml_parsed_content", "content", "find_line",
-      "find_column"
-    ))
+    expect_named(expr, c("filename", "line", "column", "lines", "parsed_content", "xml_parsed_content", "content"))
     expect_identical(expr$filename, temp_file)
     expect_identical(expr$line, i)
     expect_identical(expr$column, 1L)
@@ -229,11 +226,6 @@ test_that("returned data structure is complete", {
     expect_identical(nrow(expr$parsed_content), 2L)
     expect_true(xml2::xml_find_lgl(expr$xml_parsed_content, "count(//SYMBOL) > 0"))
     expect_identical(expr$content, lines[i])
-    expect_type(expr$find_line, "closure")
-    expect_type(expr$find_column, "closure")
-    # find_line() and find_column() are deprecated
-    expect_warning(expr$find_line(1L), "find_line.*deprecated")
-    expect_warning(expr$find_column(1L), "find_column.*deprecated")
   }
   full_expr <- exprs$expressions[[length(lines) + 1L]]
   expect_named(full_expr, c(
@@ -383,3 +375,19 @@ patrick::with_parameters_test_that(
   linter = param_df$linter,
   expression_idx = param_df$expression_idx
 )
+
+test_that("invalid function definition parser failure lints", {
+  expect_lint(
+    "function(a = 1, a = 1) NULL",
+    rex::rex("Repeated formal argument 'a'."),
+    linters = list()
+  )
+})
+
+test_that("Disallowed embedded null gives parser failure lint", {
+  expect_lint(
+    "'\\0'",
+    rex::rex("Nul character not allowed."),
+    linters = list()
+  )
+})

@@ -4,7 +4,7 @@
 #'
 #' @param r_version Minimum R version to test for compatibility
 #' @param except Character vector of functions to be excluded from linting.
-#'  Use this to list explicitly defined backports, e.g. those imported from the {backports} package or manually
+#'  Use this to list explicitly defined backports, e.g. those imported from the `{backports}` package or manually
 #'  defined in your package.
 #'
 #' @examples
@@ -50,8 +50,8 @@ backport_linter <- function(r_version = getRversion(), except = character()) {
 
     xml <- source_expression$xml_parsed_content
 
-    all_names_nodes <- xml2::xml_find_all(xml, names_xpath)
-    all_names <- xml2::xml_text(all_names_nodes)
+    all_names_nodes <- xml_find_all(xml, names_xpath)
+    all_names <- xml_text(all_names_nodes)
 
     # not sapply/vapply, which may over-simplify to vector
     # rbind makes sure we have a matrix with dimensions [n_versions x n_names]

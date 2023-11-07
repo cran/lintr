@@ -330,7 +330,7 @@ test_that("global variable detection works", {
 test_that("package detection works", {
   expect_length(
     lint_package(test_path("dummy_packages", "package"), linters = object_usage_linter(), parse_settings = FALSE),
-    9L
+    10L
   )
 })
 
@@ -349,6 +349,15 @@ test_that("interprets glue expressions", {
     fun <- function() {
       local_var <- 42
       glue::glue('The answer is {local_var}.')
+    }
+  "), NULL, linter)
+
+  # no need for namespace-qualification
+  expect_lint(trim_some("
+    glue <- glue::glue # imitate this being an @import
+    fun <- function() {
+      local_var <- 42
+      glue('The answer is {local_var}.')
     }
   "), NULL, linter)
 
@@ -410,6 +419,28 @@ test_that("interprets glue expressions", {
       glue::glue('The answer is {local_var}.')
     }
   "), "local_var", object_usage_linter(interpret_glue = FALSE))
+
+  # call in glue is caught
+  expect_lint(
+    trim_some("
+      fun <- function() {
+        local_call <- identity
+        local_unused_call <- identity
+        glue::glue('{local_call(1)}')
+      }
+    "),
+    "local_unused_call",
+    linter
+  )
+
+  # ditto infix operator
+  expect_lint(trim_some("
+    glue <- glue::glue # imitate this being an @import
+    foo <- function() {
+      `%++%` <- `+`
+      glue('{x %++% y}')
+    }
+  "), NULL, linter)
 })
 
 test_that("errors/edge cases in glue syntax don't fail lint()", {

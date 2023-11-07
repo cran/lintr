@@ -51,7 +51,7 @@ closed_curly_linter <- function(allow_single_line = FALSE) {
     )"
   ))
 
-  xpath <- glue::glue("//OP-RIGHT-BRACE[
+  xpath <- glue("//OP-RIGHT-BRACE[
     { xp_cond_closed } and (
       (@line1 = preceding-sibling::*[1]/@line2) or
       (@line1 = parent::expr/following-sibling::*[1][not(self::ELSE)]/@line1)
@@ -64,7 +64,7 @@ closed_curly_linter <- function(allow_single_line = FALSE) {
     }
 
     xml_nodes_to_lints(
-      xml2::xml_find_all(source_expression$xml_parsed_content, xpath),
+      xml_find_all(source_expression$xml_parsed_content, xpath),
       source_expression = source_expression,
       lint_message = "Closing curly-braces should always be on their own line, unless they are followed by an else."
     )
@@ -109,7 +109,7 @@ open_curly_linter <- function(allow_single_line = FALSE) {
 
     xml <- source_expression$xml_parsed_content
 
-    expr_before <- xml2::xml_find_all(xml, xpath_before)
+    expr_before <- xml_find_all(xml, xpath_before)
     lints_before <- xml_nodes_to_lints(
       expr_before,
       source_expression = source_expression,
@@ -117,7 +117,7 @@ open_curly_linter <- function(allow_single_line = FALSE) {
       type = "style"
     )
 
-    expr_after <- xml2::xml_find_all(xml, xpath_after)
+    expr_after <- xml_find_all(xml, xpath_after)
     lints_after <- xml_nodes_to_lints(
       expr_after,
       source_expression = source_expression,
@@ -150,7 +150,7 @@ paren_brace_linter <- function() {
 
     xml <- source_expression$xml_parsed_content
 
-    match_exprs <- xml2::xml_find_all(xml, xpath)
+    match_exprs <- xml_find_all(xml, xpath)
 
     xml_nodes_to_lints(
       match_exprs,
@@ -193,25 +193,6 @@ unneeded_concatenation_linter <- function(allow_single_expression = TRUE) {
     length(allow_single_expression) == 1L
   )
   unnecessary_concatenation_linter(allow_single_expression = allow_single_expression)
-}
-
-#' @keywords internal
-#' @noRd
-find_line_fun <- function(content, newline_locs) {
-  function(line_number) {
-    lintr_deprecated("find_line_fun", new = "XPath logic and xml_nodes_to_lints()", version = "3.0.0")
-    which(newline_locs >= line_number)[1L] - 1L
-  }
-}
-
-#' @keywords internal
-#' @noRd
-find_column_fun <- function(content, newline_locs) {
-  function(line_number) {
-    lintr_deprecated("find_column_fun", new = "XPath logic and xml_nodes_to_lints()", version = "3.0.0")
-    matched_line_number <- which(newline_locs >= line_number)[1L] - 1L
-    line_number - newline_locs[matched_line_number]
-  }
 }
 
 #' Single quotes linter
