@@ -1,3 +1,27 @@
+# lintr 3.1.2
+
+## New and improved features
+
+### Lint accuracy fixes: removing false positives
+
+* `unreachable_code_linter()` ignores reachable code in inline functions like `function(x) if (x > 2) stop() else x` (#2259, @MEO265).
+* `unnecessary_lambda_linter()`
+  + ignores extractions with explicit returns like `lapply(l, function(x) foo(x)$bar)` (#2258, @MichaelChirico).
+  + ignores calls on the RHS of operators like `lapply(l, function(x) "a" %in% names(x))` (#2310, @MichaelChirico).
+* `vector_logic_linter()` recognizes some cases where bitwise `&`/`|` are used correctly (#1453, @MichaelChirico).
+* `expect_comparison_linter()` ignores faulty usage like `expect_true(x, y > z)` (#2083, @MichaelChirico). Note that `y > z` is being passed to the `info=` argument, so this is likely a mistake.
+* `consecutive_assertion_linter()` ignores cases where a second assertion follows an intervening assignment with `=` (#2444, @MichaelChirico).
+
+### Lint accuracy fixes: removing false negatives
+
+* `missing_argument_linter()` catches all missing arguments in calls with several, e.g. `foo(,,)` gives 3 lints instead of 2 (#2399, @MichaelChirico).
+* `duplicate_argument_linter()` no longer misses cases with duplicate arguments where a comment comes between the argument name and `=` (#2402, @MichaelChirico).
+
+## Notes
+
+* Fixed a test assuming a specific parser error message that recently changed in r-devel (#2527, @IndrajeetPatil).
+* @MichaelChirico has taken over CRAN maintainer duties for the package. Many thanks to @jimhester for more than 10 years and 15 releases wearing that hat!!
+
 # lintr 3.1.1
 
 ## Breaking changes

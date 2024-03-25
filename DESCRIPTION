@@ -1,12 +1,12 @@
 Package: lintr
 Title: A 'Linter' for R Code
-Version: 3.1.1
+Version: 3.1.2
 Authors@R: c(
-    person("Jim", "Hester", , "james.f.hester@gmail.com", role = c("aut", "cre")),
+    person("Jim", "Hester", , role = "aut"),
     person("Florent", "Angly", role = "aut",
            comment = "fangly"),
     person("Russ", "Hyde", role = "aut"),
-    person("Michael", "Chirico", role = "aut"),
+    person("Michael", "Chirico", email = "michaelchirico4@gmail.com", role = c("aut", "cre")),
     person("Kun", "Ren", role = "aut"),
     person("Alexander", "Rosenstock", role = "aut",
            comment = "AshesITR"),
@@ -32,7 +32,7 @@ VignetteBuilder: knitr
 Config/Needs/website: tidyverse/tidytemplate
 Config/testthat/edition: 3
 Encoding: UTF-8
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 Collate: 'make_linter_from_xpath.R' 'xp_utils.R' 'utils.R' 'AAA.R'
         'T_and_F_symbol_linter.R' 'absolute_path_linter.R' 'actions.R'
         'addins.R' 'any_duplicated_linter.R' 'any_is_na_linter.R'
@@ -91,15 +91,15 @@ Collate: 'make_linter_from_xpath.R' 'xp_utils.R' 'utils.R' 'AAA.R'
         'xml_nodes_to_lints.R' 'yoda_test_linter.R' 'zzz.R'
 Language: en-US
 NeedsCompilation: no
-Packaged: 2023-11-07 15:21:27 UTC; jimhester
-Author: Jim Hester [aut, cre],
+Packaged: 2024-03-24 22:09:44 UTC; michael
+Author: Jim Hester [aut],
   Florent Angly [aut] (fangly),
   Russ Hyde [aut],
-  Michael Chirico [aut],
+  Michael Chirico [aut, cre],
   Kun Ren [aut],
   Alexander Rosenstock [aut] (AshesITR),
   Indrajeet Patil [aut] (<https://orcid.org/0000-0003-1995-6531>,
     @patilindrajeets)
-Maintainer: Jim Hester <james.f.hester@gmail.com>
+Maintainer: Michael Chirico <michaelchirico4@gmail.com>
 Repository: CRAN
-Date/Publication: 2023-11-07 16:10:02 UTC
+Date/Publication: 2024-03-25 06:10:02 UTC
